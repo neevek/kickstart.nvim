@@ -627,3 +627,6 @@ cmp.setup {
     { name = 'luasnip' },
   },
 }
+
+vim.api.nvim_set_hl(0, "Comment", { fg = "#888888" })
+vim.api.nvim_set_hl(0, "@comment", { link = "Comment" })
