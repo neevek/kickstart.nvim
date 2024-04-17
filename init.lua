@@ -526,6 +526,8 @@ require('telescope').setup {
       i = {
         ['<C-u>'] = false,
         ['<C-d>'] = false,
+        ["<C-j>"] = require('telescope.actions').preview_scrolling_down,
+        ["<C-k>"] = require('telescope.actions').preview_scrolling_up,
       },
     },
   },
@@ -645,3 +647,5 @@ cmp.setup {
 
 vim.api.nvim_set_hl(0, "Comment", { fg = "#888888" })
 vim.api.nvim_set_hl(0, "@comment", { link = "Comment" })
+vim.api.nvim_set_hl(0, 'TelescopeSelection', { bg = '#666666', fg = '#ffffff' })
+vim.api.nvim_set_hl(0, 'TelescopePreviewLine', { bg = '#666666', fg = '#ffffff' })
