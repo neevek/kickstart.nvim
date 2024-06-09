@@ -275,12 +275,156 @@ require('lazy').setup({
     }
   },
 
+
+  {
+    "mfussenegger/nvim-dap",
+    dependencies = {
+      {
+        "rcarriga/nvim-dap-ui",
+        "nvim-neotest/nvim-nio",
+        "jay-babu/mason-nvim-dap.nvim",
+        "theHamsta/nvim-dap-virtual-text",
+      }
+    },
+    config = function()
+      require('mason-nvim-dap').setup({
+        ensure_installed = { 'codelldb' }
+      })
+
+      require("nvim-dap-virtual-text").setup()
+
+      local mason_registry = require("mason-registry")
+      local codelldb = mason_registry.get_package("codelldb")
+      local extension_path = codelldb:get_install_path() .. "/extension/"
+      local codelldb_path = extension_path .. "adapter/codelldb"
+
+      local dap = require("dap")
+      dap.adapters.codelldb = {
+        type = 'server',
+        port = "${port}",
+        executable = {
+          -- Change this to your path!
+          command = codelldb_path,
+          args = { "--port", "${port}" },
+        }
+      }
+      dap.configurations.rust = {
+        {
+          name = "Launch file",
+          type = "codelldb",
+          request = "launch",
+          program = function()
+            return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+          end,
+          cwd = '${workspaceFolder}',
+          stopOnEntry = false,
+        },
+      }
+
+      vim.keymap.set('n', '<F5>', function() require('dap').continue() end)
+      vim.keymap.set('n', '<Leader>n', function() require('dap').step_over() end)
+      vim.keymap.set('n', '<Leader>s', function() require('dap').step_into() end)
+      vim.keymap.set('n', '<Leader>o', function() require('dap').step_out() end)
+      vim.keymap.set('n', '<Leader>b', function() require('dap').toggle_breakpoint() end)
+      vim.keymap.set('n', '<Leader>lp',
+        function() require('dap').set_breakpoint(nil, nil, vim.fn.input('Log point message: ')) end)
+      vim.keymap.set('n', '<Leader>dr', function() require('dap').repl.open() end)
+      vim.keymap.set('n', '<Leader>dl', function() require('dap').run_last() end)
+      vim.keymap.set('n', '<Leader>dd', function() require('dap').continue() end)
+      vim.keymap.set('n', '<Leader>dt', function() require('dap').terminate() end)
+      vim.keymap.set({ 'n', 'v' }, '<Leader>dh', function() require('dap.ui.widgets').hover() end)
+      vim.keymap.set({ 'n', 'v' }, '<Leader>dp', function() require('dap.ui.widgets').preview() end)
+      vim.keymap.set('n', '<Leader>df', function()
+        local widgets = require('dap.ui.widgets')
+        widgets.centered_float(widgets.frames)
+      end)
+      vim.keymap.set('n', '<Leader>ds', function()
+        local widgets = require('dap.ui.widgets')
+        widgets.centered_float(widgets.scopes)
+      end)
+
+      require("neodev").setup({
+        library = { plugins = { "nvim-dap-ui" }, types = true },
+      })
+    end
+  },
+
+  {
+    "Weissle/persistent-breakpoints.nvim",
+    config = function()
+      local opts = { noremap = true, silent = true }
+      vim.keymap.set("n", "<Leader>db", function() require('persistent-breakpoints.api').toggle_breakpoint() end, opts)
+      require('persistent-breakpoints').setup {
+        load_breakpoints_event = { "BufReadPost" }
+      }
+    end,
+  },
+
+  {
+    "rcarriga/nvim-dap-ui",
+    keys = {
+      {
+        "<leader>du",
+        function()
+          require("dapui").toggle()
+        end,
+        silent = true,
+      },
+    },
+    opts = {
+      mappings = {
+        expand = { "<CR>", "<2-LeftMouse>" },
+        open = "o",
+        remove = "d",
+        edit = "e",
+        repl = "r",
+        toggle = "t",
+      },
+      layouts = {
+        {
+          elements = {
+            { id = "console", size = 0.70 },
+            { id = "repl",    size = 0.30 },
+          },
+          size = 0.20,
+          position = "bottom",
+        },
+        {
+          elements = {
+            { id = "watches",     size = 0.20 },
+            { id = "scopes",      size = 0.20 },
+            { id = "stacks",      size = 0.40 },
+            { id = "breakpoints", size = 0.20 },
+          },
+          size = 0.25,
+          position = "right",
+        },
+      },
+      controls = {
+        enabled = true,
+        element = "repl",
+      },
+      floating = {
+        max_height = 0.9,
+        max_width = 0.5,
+        border = vim.g.border_chars,
+        mappings = {
+          close = { "q", "<Esc>" },
+        },
+      },
+    },
+    config = function(_, opts)
+      require("dapui").setup(opts)
+    end,
+  },
+
+
   {
     'mrcjkb/rustaceanvim',
     version = '^4',
+    lazy = false,
     dependencies = {
       "nvim-lua/plenary.nvim",
-      "mfussenegger/nvim-dap",
       {
         "lvimuser/lsp-inlayhints.nvim",
         opts = {}
@@ -291,21 +435,23 @@ require('lazy').setup({
       local capabilities = vim.lsp.protocol.make_client_capabilities()
       capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
 
-      vim.g.rustaceanvim = {
-        inlay_hints = {
-          highlight = "NonText",
-        },
-        tools = {
-          hover_actions = {
-            auto_focus = true,
+      vim.g.rustaceanvim = function()
+        return {
+          inlay_hints = {
+            highlight = "NonText",
           },
-        },
-        server = {
-          on_attach = function(client, bufnr)
-            require("lsp-inlayhints").on_attach(client, bufnr)
-          end
+          tools = {
+            hover_actions = {
+              auto_focus = true,
+            },
+          },
+          server = {
+            on_attach = function(client, bufnr)
+              require("lsp-inlayhints").on_attach(client, bufnr)
+            end
+          }
         }
-      }
+      end
     end
   },
 
