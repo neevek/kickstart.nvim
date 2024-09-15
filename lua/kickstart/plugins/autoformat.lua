@@ -51,7 +51,8 @@ return {
         end
 
         -- Filter out C and C++ files
-        if vim.bo.filetype == 'c' or vim.bo.filetype == 'cpp' then
+        if vim.bo.filetype == 'c' or vim.bo.filetype == 'cpp'
+            or vim.bo.filetype == 'objc' or vim.bo.filetype == 'objcpp' then
           return
         end
 
