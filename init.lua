@@ -181,7 +181,15 @@ require('lazy').setup({
         config = true,
         opts = {
             options = {
-                separator_style = "slant",
+                separator_style = "tabpages",
+                offsets = {
+                    {
+                        filetype = "NvimTree",
+                        text = "File Explorer",
+                        highlight = "Directory",
+                        separator = true
+                    }
+                },
             },
         },
     },
