@@ -54,7 +54,7 @@ require('lazy').setup({
                     sorter = "case_sensitive",
                 },
                 view = {
-                    width = 40,
+                    width = 55,
                 },
                 renderer = {
                     group_empty = true,
@@ -87,6 +87,29 @@ require('lazy').setup({
             -- Additional lua configuration, makes nvim stuff amazing!
             'folke/neodev.nvim',
         },
+        config = function()
+            -- Require necessary modules
+            local lspconfig = require('lspconfig')
+            local mason_lspconfig = require('mason-lspconfig')
+
+            -- Use mason to set up the language server
+            mason_lspconfig.setup_handlers {
+                function(server_name) -- Default handler
+                    lspconfig[server_name].setup {}
+                end,
+
+                -- Specific setup for C++
+                ['clangd'] = function()
+                    lspconfig.clangd.setup {
+                        capabilities = {
+                            textDocument = {
+                                semanticHighlighting = true, -- Enable semantic highlighting
+                            },
+                        },
+                    }
+                end,
+            }
+        end,
     },
 
     {
@@ -289,9 +312,12 @@ require('lazy').setup({
         },
         build = ':TSUpdate',
         config = function()
-            require("nvim-treesitter.configs").setup {
-                ensure_installed = { "c", "lua", "rust" },
-                highlight = { enable = true, }
+            require('nvim-treesitter.configs').setup {
+                ensure_installed = { "c", "lua", "rust", "cpp" },
+                highlight = {
+                    enable = true,
+                    additional_vim_regex_highlighting = false, -- Disable additional regex highlighting (optional)
+                },
             }
         end,
     },
