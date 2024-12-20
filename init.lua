@@ -301,7 +301,47 @@ require('lazy').setup({
                     return vim.fn.executable 'make' == 1
                 end,
             },
+
+            {
+                "nvim-telescope/telescope-frecency.nvim",
+                config = function()
+                    require("telescope").load_extension "frecency"
+                end,
+            },
+
+            {
+                'nvim-telescope/telescope-live-grep-args.nvim',
+                dependencies = { 'nvim-telescope/telescope.nvim' },
+                config = function()
+                    require("telescope").load_extension("live_grep_args")
+                end,
+            },
         },
+        config = function()
+            local telescope = require('telescope')
+
+            telescope.setup {
+                defaults = {
+                    prompt_prefix = "> ",
+                    selection_caret = "> ",
+                    cache_picker = true,
+                    vimgrep_arguments = {
+                        'rg',
+                        '--color=never',
+                        '--no-heading',
+                        '--with-filename',
+                        '--line-number',
+                        '--column',
+                        '--smart-case',
+                    },
+                },
+            }
+
+            -- Load any necessary extensions
+            telescope.load_extension('fzf')
+            telescope.load_extension('live_grep_args')
+            telescope.load_extension('frecency')
+        end,
     },
 
     {
@@ -630,7 +670,7 @@ vim.opt.ignorecase = true
 vim.opt.cmdheight = 0
 
 -- Set highlight on search
-vim.o.hlsearch = false
+vim.o.hlsearch = true
 
 -- Make line numbers default
 vim.wo.number = true
@@ -694,6 +734,7 @@ vim.keymap.set('n', 'L', ':BufferLineCycleNext<CR>')
 vim.keymap.set('n', '<leader>ta', ':ToggleTerm<CR>')
 vim.keymap.set('t', 'jk', '<C-\\><C-n>')    -- for ToggleTerm to back to normal mode
 vim.keymap.set('t', '<ESC>', '<C-\\><C-n>') -- for ToggleTerm to back to normal mode
+vim.keymap.set('n', '<leader>ls', ':LspStop<CR>', { noremap = true, silent = true })
 
 -- [[ Highlight on yank ]]
 -- See `:help vim.highlight.on_yank()`
@@ -726,7 +767,11 @@ pcall(require('telescope').load_extension, 'fzf')
 
 vim.keymap.set('n', '<leader>fa', require('telescope.builtin').builtin, { desc = 'All Telescope commands' })
 vim.keymap.set('n', '<leader>ff', require('telescope.builtin').find_files, { desc = 'File finds' })
-vim.keymap.set('n', '<leader>fw', require('telescope.builtin').live_grep, { desc = 'Live grep' })
+-- vim.keymap.set('n', '<leader>fw', require('telescope.builtin').live_grep, { desc = 'Live grep' })
+vim.keymap.set('n', '<leader>ff', require('telescope.builtin').find_files, { desc = 'File finds' })
+vim.keymap.set('n', '<leader>fr', require('telescope').extensions.frecency.frecency, { desc = 'Recent search history' })
+vim.keymap.set('n', '<leader>fw', require('telescope').extensions.live_grep_args.live_grep_args,
+    { desc = 'Live grep with args' })
 
 -- [[ Configure LSP ]]
 --  This function gets run when an LSP connects to a particular buffer.
