@@ -732,7 +732,7 @@ vim.keymap.set('i', 'JK', '<Esc>', { noremap = true, silent = true })
 vim.keymap.set('n', 'tt', ':bwipeout <CR>', { desc = 'close tab' })
 vim.keymap.set('n', '<space>', 'yiw', { desc = 'yank word under cursor' })
 vim.keymap.set('n', '<space><space>', 'viw"+p', { desc = 'replace word under cursor' })
-vim.keymap.set('n', '<space>r', ':%s/\\<<C-r><C-w>\\>//g<Left><Left>',
+vim.keymap.set('n', '<leader>r', ':%s/\\<<C-r><C-w>\\>//g<Left><Left>',
     { desc = 'replace all occurances of word under cursor' })
 vim.keymap.set('n', '<leader>q', ':q<CR>', { desc = 'quit' })
 vim.keymap.set('n', '<leader>w', ':w<CR>', { desc = 'write' })
