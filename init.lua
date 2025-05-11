@@ -70,44 +70,30 @@ require('lazy').setup({
         end,
     },
 
-    -- NOTE: This is where your plugins related to LSP can be installed.
-    --  The configuration is done below. Search for lspconfig to find it below.
     {
-        -- LSP Configuration & Plugins
         'neovim/nvim-lspconfig',
         dependencies = {
-            -- Automatically install LSPs to stdpath for neovim
-            { 'williamboman/mason.nvim', config = true },
-            'williamboman/mason-lspconfig.nvim',
-
-            -- Useful status updates for LSP
-            -- NOTE: `opts = {}` is the same as calling `require('fidget').setup({})`
-            { 'j-hui/fidget.nvim',       opts = {} },
-
-            -- Additional lua configuration, makes nvim stuff amazing!
+            { 'j-hui/fidget.nvim', opts = {} },
             'folke/neodev.nvim',
         },
         config = function()
-            -- Require necessary modules
-            local lspconfig = require('lspconfig')
-            local mason_lspconfig = require('mason-lspconfig')
+        end,
+    },
 
-            -- Use mason to set up the language server
-            mason_lspconfig.setup_handlers {
-                function(server_name) -- Default handler
-                    lspconfig[server_name].setup {}
-                end,
-
-                -- Specific setup for C++
-                ['clangd'] = function()
-                    lspconfig.clangd.setup {
-                        capabilities = {
-                            textDocument = {
-                                semanticHighlighting = true, -- Enable semantic highlighting
-                            },
-                        },
+    {
+        "mason-org/mason-lspconfig.nvim",
+        dependencies = {
+            "mason-org/mason.nvim",
+        },
+        config = function()
+            require('mason').setup()
+            require('mason-lspconfig').setup {
+                ensure_installed = { "lua_ls", "clangd" },
+                automatic_enable = {
+                    exclude = {
+                        "rust_analyzer",
                     }
-                end,
+                },
             }
         end,
     },
@@ -392,160 +378,156 @@ require('lazy').setup({
     },
 
 
-    {
-        "mfussenegger/nvim-dap",
-        dependencies = {
-            {
-                "rcarriga/nvim-dap-ui",
-                "nvim-neotest/nvim-nio",
-                "jay-babu/mason-nvim-dap.nvim",
-                "theHamsta/nvim-dap-virtual-text",
-            }
-        },
-        config = function()
-            require('mason-nvim-dap').setup({
-                ensure_installed = { 'codelldb' }
-            })
-
-            require("nvim-dap-virtual-text").setup()
-
-            local mason_registry = require("mason-registry")
-            local codelldb = mason_registry.get_package("codelldb")
-            local extension_path = codelldb:get_install_path() .. "/extension/"
-            local codelldb_path = extension_path .. "adapter/codelldb"
-
-            local dap = require("dap")
-            dap.adapters.codelldb = {
-                type = 'server',
-                port = "${port}",
-                executable = {
-                    -- Change this to your path!
-                    command = codelldb_path,
-                    args = { "--port", "${port}" },
-                }
-            }
-            dap.configurations.rust = {
-                {
-                    name = "Launch file",
-                    type = "codelldb",
-                    request = "launch",
-                    program = function()
-                        return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
-                    end,
-                    cwd = '${workspaceFolder}',
-                    stopOnEntry = false,
-                },
-            }
-
-            vim.keymap.set('n', '<F5>', function() require('dap').continue() end)
-            vim.keymap.set('n', '<Leader>n', function() require('dap').step_over() end)
-            vim.keymap.set('n', '<Leader>s', function() require('dap').step_into() end)
-            vim.keymap.set('n', '<Leader>o', function() require('dap').step_out() end)
-            vim.keymap.set('n', '<Leader>b', function() require('dap').toggle_breakpoint() end)
-            vim.keymap.set('n', '<Leader>lp',
-                function() require('dap').set_breakpoint(nil, nil, vim.fn.input('Log point message: ')) end)
-            vim.keymap.set('n', '<Leader>dr', function() require('dap').repl.open() end)
-            vim.keymap.set('n', '<Leader>dl', function() require('dap').run_last() end)
-            vim.keymap.set('n', '<Leader>dd', function() require('dap').continue() end)
-            vim.keymap.set('n', '<Leader>dt', function() require('dap').terminate() end)
-            vim.keymap.set({ 'n', 'v' }, '<Leader>dh', function() require('dap.ui.widgets').hover() end)
-            vim.keymap.set({ 'n', 'v' }, '<Leader>dp', function() require('dap.ui.widgets').preview() end)
-            vim.keymap.set('n', '<Leader>df', function()
-                local widgets = require('dap.ui.widgets')
-                widgets.centered_float(widgets.frames)
-            end)
-            vim.keymap.set('n', '<Leader>ds', function()
-                local widgets = require('dap.ui.widgets')
-                widgets.centered_float(widgets.scopes)
-            end)
-
-            require("neodev").setup({
-                library = { plugins = { "nvim-dap-ui" }, types = true },
-            })
-        end
-    },
-
-    {
-        "Weissle/persistent-breakpoints.nvim",
-        config = function()
-            local opts = { noremap = true, silent = true }
-            vim.keymap.set("n", "<Leader>db", function() require('persistent-breakpoints.api').toggle_breakpoint() end,
-                opts)
-            require('persistent-breakpoints').setup {
-                load_breakpoints_event = { "BufReadPost" }
-            }
-        end,
-    },
-
-    {
-        "rcarriga/nvim-dap-ui",
-        keys = {
-            {
-                "<leader>du",
-                function()
-                    require("dapui").toggle()
-                end,
-                silent = true,
-            },
-        },
-        opts = {
-            mappings = {
-                expand = { "<CR>", "<2-LeftMouse>" },
-                open = "o",
-                remove = "d",
-                edit = "e",
-                repl = "r",
-                toggle = "t",
-            },
-            layouts = {
-                {
-                    elements = {
-                        { id = "console", size = 0.70 },
-                        { id = "repl",    size = 0.30 },
-                    },
-                    size = 0.20,
-                    position = "bottom",
-                },
-                {
-                    elements = {
-                        { id = "watches",     size = 0.20 },
-                        { id = "scopes",      size = 0.20 },
-                        { id = "stacks",      size = 0.40 },
-                        { id = "breakpoints", size = 0.20 },
-                    },
-                    size = 0.25,
-                    position = "right",
-                },
-            },
-            controls = {
-                enabled = true,
-                element = "repl",
-            },
-            floating = {
-                max_height = 0.9,
-                max_width = 0.5,
-                border = vim.g.border_chars,
-                mappings = {
-                    close = { "q", "<Esc>" },
-                },
-            },
-        },
-        config = function(_, opts)
-            require("dapui").setup(opts)
-        end,
-    },
+    -- {
+    --     "mfussenegger/nvim-dap",
+    --     dependencies = {
+    --         {
+    --             "rcarriga/nvim-dap-ui",
+    --             "nvim-neotest/nvim-nio",
+    --             "jay-babu/mason-nvim-dap.nvim",
+    --             "theHamsta/nvim-dap-virtual-text",
+    --         }
+    --     },
+    --     config = function()
+    --         require('mason-nvim-dap').setup({
+    --             ensure_installed = { 'codelldb' }
+    --         })
+    --
+    --         require("nvim-dap-virtual-text").setup()
+    --
+    --         local mason_registry = require("mason-registry")
+    --         local codelldb = mason_registry.get_package("codelldb")
+    --         local extension_path = codelldb:get_install_path() .. "/extension/"
+    --         local codelldb_path = extension_path .. "adapter/codelldb"
+    --
+    --         local dap = require("dap")
+    --         dap.adapters.codelldb = {
+    --             type = 'server',
+    --             port = "${port}",
+    --             executable = {
+    --                 -- Change this to your path!
+    --                 command = codelldb_path,
+    --                 args = { "--port", "${port}" },
+    --             }
+    --         }
+    --         dap.configurations.rust = {
+    --             {
+    --                 name = "Launch file",
+    --                 type = "codelldb",
+    --                 request = "launch",
+    --                 program = function()
+    --                     return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+    --                 end,
+    --                 cwd = '${workspaceFolder}',
+    --                 stopOnEntry = false,
+    --             },
+    --         }
+    --
+    --         vim.keymap.set('n', '<F5>', function() require('dap').continue() end)
+    --         vim.keymap.set('n', '<Leader>n', function() require('dap').step_over() end)
+    --         vim.keymap.set('n', '<Leader>s', function() require('dap').step_into() end)
+    --         vim.keymap.set('n', '<Leader>o', function() require('dap').step_out() end)
+    --         vim.keymap.set('n', '<Leader>b', function() require('dap').toggle_breakpoint() end)
+    --         vim.keymap.set('n', '<Leader>lp',
+    --             function() require('dap').set_breakpoint(nil, nil, vim.fn.input('Log point message: ')) end)
+    --         vim.keymap.set('n', '<Leader>dr', function() require('dap').repl.open() end)
+    --         vim.keymap.set('n', '<Leader>dl', function() require('dap').run_last() end)
+    --         vim.keymap.set('n', '<Leader>dd', function() require('dap').continue() end)
+    --         vim.keymap.set('n', '<Leader>dt', function() require('dap').terminate() end)
+    --         vim.keymap.set({ 'n', 'v' }, '<Leader>dh', function() require('dap.ui.widgets').hover() end)
+    --         vim.keymap.set({ 'n', 'v' }, '<Leader>dp', function() require('dap.ui.widgets').preview() end)
+    --         vim.keymap.set('n', '<Leader>df', function()
+    --             local widgets = require('dap.ui.widgets')
+    --             widgets.centered_float(widgets.frames)
+    --         end)
+    --         vim.keymap.set('n', '<Leader>ds', function()
+    --             local widgets = require('dap.ui.widgets')
+    --             widgets.centered_float(widgets.scopes)
+    --         end)
+    --
+    --         require("neodev").setup({
+    --             library = { plugins = { "nvim-dap-ui" }, types = true },
+    --         })
+    --     end
+    -- },
+    --
+    -- {
+    --     "Weissle/persistent-breakpoints.nvim",
+    --     config = function()
+    --         local opts = { noremap = true, silent = true }
+    --         vim.keymap.set("n", "<Leader>db", function() require('persistent-breakpoints.api').toggle_breakpoint() end,
+    --             opts)
+    --         require('persistent-breakpoints').setup {
+    --             load_breakpoints_event = { "BufReadPost" }
+    --         }
+    --     end,
+    -- },
+    --
+    -- {
+    --     "rcarriga/nvim-dap-ui",
+    --     keys = {
+    --         {
+    --             "<leader>du",
+    --             function()
+    --                 require("dapui").toggle()
+    --             end,
+    --             silent = true,
+    --         },
+    --     },
+    --     opts = {
+    --         mappings = {
+    --             expand = { "<CR>", "<2-LeftMouse>" },
+    --             open = "o",
+    --             remove = "d",
+    --             edit = "e",
+    --             repl = "r",
+    --             toggle = "t",
+    --         },
+    --         layouts = {
+    --             {
+    --                 elements = {
+    --                     { id = "console", size = 0.70 },
+    --                     { id = "repl",    size = 0.30 },
+    --                 },
+    --                 size = 0.20,
+    --                 position = "bottom",
+    --             },
+    --             {
+    --                 elements = {
+    --                     { id = "watches",     size = 0.20 },
+    --                     { id = "scopes",      size = 0.20 },
+    --                     { id = "stacks",      size = 0.40 },
+    --                     { id = "breakpoints", size = 0.20 },
+    --                 },
+    --                 size = 0.25,
+    --                 position = "right",
+    --             },
+    --         },
+    --         controls = {
+    --             enabled = true,
+    --             element = "repl",
+    --         },
+    --         floating = {
+    --             max_height = 0.9,
+    --             max_width = 0.5,
+    --             border = vim.g.border_chars,
+    --             mappings = {
+    --                 close = { "q", "<Esc>" },
+    --             },
+    --         },
+    --     },
+    --     config = function(_, opts)
+    --         require("dapui").setup(opts)
+    --     end,
+    -- },
 
 
     {
         'mrcjkb/rustaceanvim',
-        version = '^4',
+        version = '^6',
         lazy = false,
         dependencies = {
             "nvim-lua/plenary.nvim",
-            {
-                "lvimuser/lsp-inlayhints.nvim",
-                opts = {}
-            },
         },
         ft = { 'rust' },
         config = function()
@@ -564,7 +546,9 @@ require('lazy').setup({
                     },
                     server = {
                         on_attach = function(client, bufnr)
-                            require("lsp-inlayhints").on_attach(client, bufnr)
+                            if vim.lsp.inlay_hint then
+                                vim.lsp.inlay_hint.enable(true, { 0 })
+                            end
                         end
                     }
                 }
@@ -808,38 +792,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
     end
 })
 
--- mason-lspconfig requires that these setup functions are called in this order
--- before setting up the servers.
-require('mason').setup()
-require('mason-lspconfig').setup()
-require('lspconfig.ui.windows').default_options.border = 'single'
-
--- Ensure the servers above are installed
-local mason_lspconfig = require 'mason-lspconfig'
-mason_lspconfig.setup {
-    ensure_installed = { "lua_ls", "rust_analyzer", "clangd" },
-}
-
-mason_lspconfig.setup_handlers {
-    function(server_name)
-        if server_name == "rust_analyzer" then
-            -- rust_analyzer will be started by the rustaceanvim plugin, so don't config it here
-            -- otherwise there will two rust_analyzer instances running
-            return
-        end
-
-        -- nvim-cmp supports additional completion capabilities, so broadcast that to servers
-        local capabilities = vim.lsp.protocol.make_client_capabilities()
-        capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
-
-        require('lspconfig')[server_name].setup {
-            capabilities = capabilities,
-        }
-    end,
-}
-
--- [[ Configure nvim-cmp ]]
--- See `:help cmp`
 local cmp = require 'cmp'
 local luasnip = require 'luasnip'
 require('luasnip.loaders.from_vscode').lazy_load()
