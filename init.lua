@@ -26,6 +26,7 @@ vim.opt.rtp:prepend(lazypath)
 require('lazy').setup({
     -- Detect tabstop and shiftwidth automatically
     'tpope/vim-sleuth',
+    'tpope/vim-obsession',
 
     { 'echasnovski/mini.icons', version = false },
 
@@ -207,7 +208,7 @@ require('lazy').setup({
         "tiagovla/tokyodark.nvim",
         priority = 1000,
         opts = {
-            gamma = 1.00, -- adjust the brightness of the theme
+            gamma = 1.0, -- adjust the brightness of the theme
         },
         config = function(_, opts)
             require("tokyodark").setup(opts) -- calling setup is optional
@@ -224,11 +225,13 @@ require('lazy').setup({
             vim.api.nvim_set_hl(0, "CursorLine", { bg = "#121212", underline = false, bold = true })
             vim.api.nvim_set_hl(0, "Cursor", { bg = "#cccccc", underline = false, bold = true })
 
-            vim.api.nvim_set_hl(0, "Comment", { fg = "#888888" })
+            vim.api.nvim_set_hl(0, "Comment", { fg = "#808080" })
             vim.api.nvim_set_hl(0, "@comment", { link = "Comment" })
             vim.api.nvim_set_hl(0, 'TelescopeSelection', { bg = '#666666', fg = '#ffffff' })
             vim.api.nvim_set_hl(0, 'TelescopePreviewLine', { bg = '#666666', fg = '#ffffff' })
             vim.api.nvim_set_hl(0, "IndentBlanklineChar", { fg = "#eeeeee" })
+
+            vim.api.nvim_set_hl(0, "LspInlayHint", { fg = "#808080" })
         end,
     },
 
@@ -859,6 +862,32 @@ vim.api.nvim_create_autocmd("QuitPre", {
         if #invalid_win == #wins - 1 then
             -- Close all invalid windows (NvimTree)
             for _, w in ipairs(invalid_win) do vim.api.nvim_win_close(w, true) end
+        end
+    end,
+})
+
+-- Auto load and start Obsession for persistent sessions
+vim.api.nvim_create_autocmd("VimEnter", {
+    callback = function()
+        local session_file = vim.fn.getcwd() .. "/.session.vim"
+
+        -- If session exists, source it
+        if vim.fn.filereadable(session_file) == 1 then
+            vim.cmd("source " .. session_file .. " | NvimTreeOpen")
+            -- run filetype detect on all buffers
+            for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+                if vim.api.nvim_buf_is_loaded(buf) then
+                    vim.api.nvim_buf_call(buf, function()
+                        vim.cmd("filetype detect")
+                    end)
+                end
+            end
+        end
+
+        -- If not already recording with Obsession, start it
+        -- NOTE: Obsession automatically keeps .session.vim updated on BufEnter and before exit
+        if vim.g.this_obsession == nil then
+            vim.cmd("Obsess " .. session_file)
         end
     end,
 })
