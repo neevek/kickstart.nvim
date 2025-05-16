@@ -188,10 +188,10 @@ require('lazy').setup({
         'akinsho/bufferline.nvim',
         version = "*",
         dependencies = 'nvim-tree/nvim-web-devicons',
-        config = true,
         opts = {
             options = {
-                separator_style = "tabpages",
+                max_name_length = 25,
+                tab_size = 20,
                 offsets = {
                     {
                         filetype = "NvimTree",
@@ -199,6 +199,20 @@ require('lazy').setup({
                         highlight = "Directory",
                         separator = true
                     }
+                },
+            },
+            highlights = {
+                buffer_selected = {
+                    fg = "#ffcc00",
+                    bold = true,
+                },
+                indicator_selected = {
+                    fg = "#ffcc00",
+                    bold = true,
+                },
+                close_button_selected = {
+                    fg = "#ff0000",
+                    bold = true,
                 },
             },
         },
@@ -718,7 +732,7 @@ vim.o.shiftwidth = 4   -- Number of spaces inserted when indenting
 -- See `:help vim.keymap.set()`
 vim.keymap.set('i', 'jk', '<Esc>', { noremap = true, silent = true })
 vim.keymap.set('i', 'JK', '<Esc>', { noremap = true, silent = true })
-vim.keymap.set('n', 'tt', ':bwipeout <CR>', { desc = 'close tab' })
+vim.keymap.set('n', 'tt', '<cmd>bn | bd #<CR>', { desc = 'close buffer' })
 vim.keymap.set('n', '<space>', 'yiw', { desc = 'yank word under cursor' })
 vim.keymap.set('n', '<space><space>', 'viw"+p', { desc = 'replace word under cursor' })
 vim.keymap.set('n', '<leader>r', ':%s/\\<<C-r><C-w>\\>//g<Left><Left>',
@@ -870,10 +884,12 @@ vim.api.nvim_create_autocmd("QuitPre", {
 vim.api.nvim_create_autocmd("VimEnter", {
     callback = function()
         local session_file = vim.fn.getcwd() .. "/.session.vim"
+        local cli_files = vim.fn.argv()
+        local has_session = vim.fn.filereadable(session_file) == 1
 
         -- If session exists, source it
-        if vim.fn.filereadable(session_file) == 1 then
-            vim.cmd("source " .. session_file .. " | NvimTreeOpen")
+        if has_session then
+            vim.cmd("source " .. session_file)
             -- run filetype detect on all buffers
             for _, buf in ipairs(vim.api.nvim_list_bufs()) do
                 if vim.api.nvim_buf_is_loaded(buf) then
@@ -888,6 +904,17 @@ vim.api.nvim_create_autocmd("VimEnter", {
         -- NOTE: Obsession automatically keeps .session.vim updated on BufEnter and before exit
         if vim.g.this_obsession == nil then
             vim.cmd("Obsess " .. session_file)
+        end
+
+        if #cli_files > 0 then
+            local last_file = cli_files[#cli_files]
+            vim.cmd("edit " .. vim.fn.fnameescape(last_file))
+        end
+
+        if has_session then
+            vim.cmd("NvimTreeOpen")
+            -- "wincmd p" -- go back to previous window (usually the last file)
+            vim.cmd("wincmd p")
         end
     end,
 })
