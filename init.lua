@@ -785,7 +785,9 @@ vim.keymap.set('n', '<leader>fa', require('telescope.builtin').builtin, { desc =
 vim.keymap.set('n', '<leader>ff', require('telescope.builtin').find_files, { desc = 'File finds' })
 -- vim.keymap.set('n', '<leader>fw', require('telescope.builtin').live_grep, { desc = 'Live grep' })
 vim.keymap.set('n', '<leader>ff', require('telescope.builtin').find_files, { desc = 'File finds' })
-vim.keymap.set('n', '<leader>fr', require('telescope').extensions.frecency.frecency, { desc = 'Recent search history' })
+vim.keymap.set('n', '<leader>fr', require('telescope.builtin').lsp_references,
+    { desc = 'Lists LSP references for word under the cursor' })
+vim.keymap.set('n', '<leader>fo', require('telescope').extensions.frecency.frecency, { desc = 'Recent search history' })
 vim.keymap.set('n', '<leader>fw', require('telescope').extensions.live_grep_args.live_grep_args,
     { desc = 'Live grep with args' })
 
