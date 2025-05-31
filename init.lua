@@ -901,34 +901,37 @@ vim.api.nvim_create_autocmd("VimEnter", {
         local cli_files = vim.fn.argv()
         local has_session = vim.fn.filereadable(session_file) == 1
 
-        -- If session exists, source it
-        if has_session then
-            vim.cmd("source " .. session_file)
-            -- run filetype detect on all buffers
-            for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-                if vim.api.nvim_buf_is_loaded(buf) then
-                    vim.api.nvim_buf_call(buf, function()
-                        vim.cmd("filetype detect")
-                    end)
+        -- Only load session if no files are specified
+        if #cli_files == 0 then
+            -- If session exists, source it
+            if has_session then
+                vim.cmd("source " .. session_file)
+                -- run filetype detect on all buffers
+                for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+                    if vim.api.nvim_buf_is_loaded(buf) then
+                        vim.api.nvim_buf_call(buf, function()
+                            vim.cmd("filetype detect")
+                        end)
+                    end
                 end
+            end
+
+            -- If not already recording with Obsession, start it
+            -- NOTE: Obsession automatically keeps .session.vim updated on BufEnter and before exit
+            if vim.g.this_obsession == nil then
+                vim.cmd("Obsess " .. session_file)
+            end
+
+            if has_session then
+                vim.cmd("NvimTreeOpen")
+                vim.cmd("wincmd p")
             end
         end
 
-        -- If not already recording with Obsession, start it
-        -- NOTE: Obsession automatically keeps .session.vim updated on BufEnter and before exit
-        if vim.g.this_obsession == nil then
-            vim.cmd("Obsess " .. session_file)
-        end
-
+        -- Open the last file if provided in the command line arguments
         if #cli_files > 0 then
             local last_file = cli_files[#cli_files]
             vim.cmd("edit " .. vim.fn.fnameescape(last_file))
-        end
-
-        if has_session then
-            vim.cmd("NvimTreeOpen")
-            -- "wincmd p" -- go back to previous window (usually the last file)
-            vim.cmd("wincmd p")
         end
     end,
 })
