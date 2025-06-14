@@ -609,9 +609,9 @@ require('lazy').setup({
 
     {
         "aznhe21/actions-preview.nvim",
-        config = function()
-            vim.keymap.set({ "v", "n" }, "<tab>", require("actions-preview").code_actions)
-        end,
+        keys = {
+            { "<tab>", function() require("actions-preview").code_actions() end, mode = { "n", "v" } },
+        },
         opts = {
             telescope = {
                 sorting_strategy = "ascending",
