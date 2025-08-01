@@ -327,7 +327,6 @@ require('lazy').setup({
                 defaults = {
                     prompt_prefix = "> ",
                     selection_caret = "> ",
-                    cache_picker = true,
                     vimgrep_arguments = {
                         'rg',
                         '--color=never',
@@ -336,6 +335,7 @@ require('lazy').setup({
                         '--line-number',
                         '--column',
                         '--smart-case',
+                        '--sort-files', -- Ensures consistent file ordering
                     },
                 },
             }
@@ -775,6 +775,84 @@ vim.api.nvim_create_autocmd('TextYankPost', {
     pattern = '*',
 })
 
+
+-- Function to create persistent telescope pickers using built-in caching
+local function create_persistent_picker(picker_func, picker_title_pattern, opts)
+    opts = opts or {}
+
+    -- Set up caching options
+    opts.cache_picker = {
+        num_pickers = 1,
+        limit_entries = 1000
+    }
+    opts.selection_strategy = "row"
+
+    -- Check if we have a cached picker and resume it
+    local state = require "telescope.state"
+    local cached_pickers = state.get_global_key "cached_pickers"
+
+    if cached_pickers and #cached_pickers > 0 then
+        -- Look for a cached picker of the same type by matching prompt title
+        for i, picker in ipairs(cached_pickers) do
+            if picker.prompt_title and picker.prompt_title:match(picker_title_pattern) then
+                -- Resume the cached picker using internal.resume
+                require("telescope.builtin.__internal").resume {
+                    cache_index = i,
+                    cache_picker = opts.cache_picker
+                }
+                return
+            end
+        end
+    end
+
+    -- If no cached picker found, create a new one with proper attach_mappings
+    opts.attach_mappings = function(prompt_bufnr, map)
+        local actions = require "telescope.actions"
+
+        -- Standard close mappings
+        map('i', '<C-c>', actions.close)
+        map('n', 'q', actions.close)
+
+        -- Standard select mappings
+        map('i', '<CR>', actions.select_default)
+        map('n', '<CR>', actions.select_default)
+
+        return true
+    end
+
+    -- Call the picker function
+    picker_func(opts)
+end
+
+-- Wrapper functions for telescope pickers with input and selection persistence
+local function persistent_find_files()
+    create_persistent_picker(require('telescope.builtin').find_files, "Find Files")
+end
+
+local function persistent_live_grep()
+    create_persistent_picker(require('telescope').extensions.live_grep_args.live_grep_args, "Live Grep")
+end
+
+local function persistent_builtin()
+    create_persistent_picker(require('telescope.builtin').builtin, "Telescope")
+end
+
+local function persistent_lsp_references()
+    create_persistent_picker(require('telescope.builtin').lsp_references, "LSP References")
+end
+
+local function persistent_frecency()
+    create_persistent_picker(require('telescope').extensions.frecency.frecency, "Frecency")
+end
+
+local function persistent_lsp_definitions()
+    create_persistent_picker(require('telescope.builtin').lsp_definitions, "LSP Definitions")
+end
+
+local function persistent_lsp_implementations()
+    create_persistent_picker(require('telescope.builtin').lsp_implementations, "LSP Implementations")
+end
+
 -- [[ Configure Telescope ]]
 -- See `:help telescope` and `:help telescope.setup()`
 require('telescope').setup {
@@ -787,20 +865,27 @@ require('telescope').setup {
                 ["<C-k>"] = require('telescope.actions').preview_scrolling_up,
             },
         },
+        -- Configure deterministic sorting for consistent results
+        sorting_strategy = "ascending",
+        file_sorter = require("telescope.sorters").get_fzy_sorter,
+        generic_sorter = require("telescope.sorters").get_fzy_sorter,
+        tiebreak = function(current_entry, existing_entry, _)
+            -- Break ties deterministically by comparing the ordinal values
+            return current_entry.ordinal < existing_entry.ordinal
+        end,
     },
 }
 
 -- Enable telescope fzf native, if installed
 pcall(require('telescope').load_extension, 'fzf')
 
-vim.keymap.set('n', '<leader>fa', require('telescope.builtin').builtin, { desc = 'All Telescope commands' })
-vim.keymap.set('n', '<leader>ff', require('telescope.builtin').find_files, { desc = 'File finds' })
+vim.keymap.set('n', '<leader>fa', persistent_builtin, { desc = 'All Telescope commands' })
+vim.keymap.set('n', '<leader>ff', persistent_find_files, { desc = 'File finds' })
 -- vim.keymap.set('n', '<leader>fw', require('telescope.builtin').live_grep, { desc = 'Live grep' })
-vim.keymap.set('n', '<leader>ff', require('telescope.builtin').find_files, { desc = 'File finds' })
-vim.keymap.set('n', '<leader>fr', require('telescope.builtin').lsp_references,
+vim.keymap.set('n', '<leader>fr', persistent_lsp_references,
     { desc = 'Lists LSP references for word under the cursor' })
-vim.keymap.set('n', '<leader>fo', require('telescope').extensions.frecency.frecency, { desc = 'Recent search history' })
-vim.keymap.set('n', '<leader>fw', require('telescope').extensions.live_grep_args.live_grep_args,
+vim.keymap.set('n', '<leader>fo', persistent_frecency, { desc = 'Recent search history' })
+vim.keymap.set('n', '<leader>fw', persistent_live_grep,
     { desc = 'Live grep with args' })
 
 -- [[ Configure LSP ]]
@@ -816,9 +901,9 @@ vim.api.nvim_create_autocmd('LspAttach', {
         end
 
         nmap('<leader>lr', vim.lsp.buf.rename, 'LSP rename')
-        nmap('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
-        nmap('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
-        nmap('gI', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
+        nmap('gd', persistent_lsp_definitions, '[G]oto [D]efinition')
+        nmap('gr', persistent_lsp_references, '[G]oto [R]eferences')
+        nmap('gI', persistent_lsp_implementations, '[G]oto [I]mplementation')
         nmap('K', vim.lsp.buf.hover, 'Hover Documentation')
     end
 })
