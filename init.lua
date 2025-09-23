@@ -1031,13 +1031,12 @@ require('telescope').setup {
 pcall(require('telescope').load_extension, 'fzf')
 
 vim.keymap.set('n', '<leader>fa', persistent_builtin, { desc = 'All Telescope commands' })
-vim.keymap.set('n', '<leader>ff', persistent_find_files, { desc = 'File finds' })
+-- vim.keymap.set('n', '<leader>ff', persistent_find_files, { desc = 'File finds' })
 -- vim.keymap.set('n', '<leader>fw', require('telescope.builtin').live_grep, { desc = 'Live grep' })
 vim.keymap.set('n', '<leader>fr', persistent_lsp_references,
     { desc = 'Lists LSP references for word under the cursor' })
 vim.keymap.set('n', '<leader>fo', persistent_frecency, { desc = 'Recent search history' })
-vim.keymap.set('n', '<leader>fw', persistent_live_grep,
-    { desc = 'Live grep with args' })
+-- vim.keymap.set('n', '<leader>fw', persistent_live_grep, { desc = 'Live grep with args' })
 
 -- [[ Configure LSP ]]
 --  This function gets run when an LSP connects to a particular buffer.
