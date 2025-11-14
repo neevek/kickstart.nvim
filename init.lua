@@ -731,7 +731,17 @@ require('lazy').setup({
                 underline = true,
                 update_in_insert = false,
                 severity_sort = true,
-                virtual_lines = true,
+                virtual_lines = false,
+            })
+
+            -- Enable virtual_lines only for Rust
+            vim.api.nvim_create_autocmd("FileType", {
+                pattern = "rust",
+                callback = function()
+                    vim.diagnostic.config({
+                        virtual_lines = true
+                    })
+                end,
             })
         end
     },
@@ -1036,7 +1046,7 @@ vim.keymap.set('n', '<leader>fa', persistent_builtin, { desc = 'All Telescope co
 vim.keymap.set('n', '<leader>fr', persistent_lsp_references,
     { desc = 'Lists LSP references for word under the cursor' })
 vim.keymap.set('n', '<leader>fo', persistent_frecency, { desc = 'Recent search history' })
--- vim.keymap.set('n', '<leader>fw', persistent_live_grep, { desc = 'Live grep with args' })
+vim.keymap.set('n', '<leader>fw', persistent_live_grep, { desc = 'Live grep with args' })
 
 -- [[ Configure LSP ]]
 --  This function gets run when an LSP connects to a particular buffer.
