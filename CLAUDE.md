@@ -19,27 +19,37 @@ This is a Neovim configuration based on kickstart.nvim - a minimal, single-file 
 - `:checkhealth` - Check Neovim health and configuration status
 - `:NvimTreeToggle` - Toggle file explorer
 - `:BufferLineCycleNext/Prev` - Navigate between buffers (H/L keys)
-- `:Telescope find_files` - Find files (leader + ff)
+- `:Telescope find_files` - Telescope file search (`<leader>ff` uses Snacks)
 - `:Telescope live_grep_args` - Search in files (leader + fw)
 
-### Telescope Persistent State
-All Telescope pickers now preserve both the last input text and selection position between invocations using telescope's built-in caching. Results are sorted consistently to ensure reliable cursor positioning:
+### Navigation and performance
 
-- `<leader>ff` - Find files (preserves last search and cursor position)
-- `<leader>fw` - Live grep with arguments (preserves last search and cursor position)
-- `<leader>fr` - Find references (preserves last search and cursor position)
-- `<leader>fa` - All Telescope commands (preserves last search and cursor position)
-- `<leader>fo` - Recent files (preserves last search and cursor position)
-- `gd` - Go to definition (preserves last search and cursor position)
-- `gr` - Go to references (preserves last search and cursor position)
-- `gI` - Go to implementations (preserves last search and cursor position)
+General Telescope pickers preserve their query and selection through picker caching. LSP definitions, references, and implementations always request fresh results for the current symbol. Do not resume LSP results by picker title alone or add ripgrep file sorting: sorting serializes search.
 
-**Note**: Results are now consistently ordered by using ripgrep's `--sort-files` flag and telescope's deterministic sorting algorithms, ensuring that the same search query always produces results in the same order. Telescope's built-in caching preserves both input text and cursor/scroll positions between invocations. The global cache_picker setting has been removed to avoid conflicts with individual picker configurations.
+`gI` / `<leader>li` resolve implementation bodies asynchronously through `lua/custom/lsp_navigation.lua`, with four requests in flight and declaration fallback while indexing. Do not reintroduce synchronous requests, fixed waits, or source-buffer preloading. `:LspNavigationCancel` cancels pending work.
+
+An empty implementation result falls back to definition lookup; non-virtual methods have definitions but no overrides. Both Telescope and Snacks show previews above results. Search policy in `lua/custom/search.lua` excludes paths containing `unittest` unless the effective search directory is inside `unittest/`. Preserve the project-local `.ignore` exception for generated SDK source discovery.
+
+Deduplicate and filter navigation destinations before choosing the UI: one visible destination jumps directly, multiple destinations open the picker. File pickers show complete project-relative paths without abbreviated directory components.
+
+For read-only live checks against project files, launch `nvim --headless -n -R -i NONE` so tests do not collide with swap files from the user's running editor. An E325 swap warning can interrupt a jump before its cursor is positioned.
+
+Restore sessions in a scheduled callback after `VimEnter`. Sourcing a session directly inside that autocmd suppresses lazy file events; `nested=true` alone still left filetypes undetected on Neovim 0.12. Verify direct, restored-session, and NvimTree file opening with `python3 tests/startup_ui.py` after changing startup loading.
+
+Bufferline is essential UI and loads eagerly. Dashboard must keep `hide.tabline=false`: otherwise its delayed restore can reset `showtabline` to 1 after bufferline loads. NvimTree shows Git-ignored files and follows the active buffer; picker search exclusions are a separate policy. Check rendered UI and tree selection in a real terminal, not just plugin-loaded flags in headless mode.
+
+Startup has one owner: automatically show the dashboard only when there are no file arguments and no session to restore. Running dashboard startup alongside session restoration can wipe the same initial buffer twice. `:Dashboard` remains available explicitly.
+
+Telescope is pinned to upstream commit `40aedd8a68c78a656a10a8d62d80c54af59420fb` for the batched cached-finder replay fix. Run `tests/search_policy.lua` with the real config when changing Telescope or picker filtering.
+
+Completion, Telescope, NvimTree, and terminal setup must stay inside their lazy plugin configs. Top-level `require()` calls can defeat lazy loading.
+
+Apollo platform profiles, refresh commands, dependency prerequisites, and server setup are documented in `LSP_SETUP.md`. `:ApolloLspProfile` switches the shared-code platform. Python and the native compilation databases are configured locally in each checkout.
 
 ### Formatting
 - `stylua .` - Format all Lua files in the project (requires stylua to be installed)
 - `stylua --check .` - Check if Lua files are properly formatted
-- Auto-formatting is enabled by default on save for most file types (can be toggled with `:KickstartFormatToggle`)
+- Only Rust is formatted on save (toggle with `:KickstartFormatToggle`); other file types are opt-in.
 
 ## Architecture and Structure
 
@@ -87,7 +97,7 @@ The configuration follows these patterns:
 
 ## Dependencies
 
-- Neovim >= 0.9.0 (latest stable or nightly recommended)
+- Neovim >= 0.11.7 (verified with 0.12.5)
 - ripgrep (for telescope search functionality)
 - Git (for plugin installation)
 - For Rust development: rust-analyzer (automatically managed by Mason)

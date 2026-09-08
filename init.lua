@@ -28,10 +28,11 @@ require('lazy').setup({
     'tpope/vim-sleuth',
     'tpope/vim-obsession',
 
-    { 'echasnovski/mini.icons', version = false },
+    { 'echasnovski/mini.icons', version = false, lazy = true },
 
     {
         'nvim-tree/nvim-tree.lua',
+        cmd = { 'NvimTreeToggle', 'NvimTreeOpen', 'NvimTreeFocus' },
         config = function()
             local function my_on_attach(bufnr)
                 local api = require "nvim-tree.api"
@@ -62,10 +63,11 @@ require('lazy').setup({
                 },
                 filters = {
                     dotfiles = true,
+                    git_ignored = false,
                 },
                 update_focused_file = {
                     enable = true,
-                    -- update_cwd = true,
+                    update_root = { enable = true },
                 },
             }
         end,
@@ -73,9 +75,9 @@ require('lazy').setup({
 
     {
         'neovim/nvim-lspconfig',
+        lazy = true,
         dependencies = {
             { 'j-hui/fidget.nvim', opts = {} },
-            'folke/neodev.nvim',
         },
         config = function()
         end,
@@ -83,13 +85,18 @@ require('lazy').setup({
 
     {
         "mason-org/mason-lspconfig.nvim",
+        event = { 'BufReadPre', 'BufNewFile' },
+        cmd = { 'Mason', 'MasonInstall', 'MasonUninstall', 'LspInstall', 'LspUninstall' },
         dependencies = {
+            'neovim/nvim-lspconfig',
+            'hrsh7th/cmp-nvim-lsp',
             "mason-org/mason.nvim",
         },
         config = function()
             require('mason').setup()
+            require('custom.lsp').setup()
             require('mason-lspconfig').setup {
-                ensure_installed = { "lua_ls", "clangd" },
+                ensure_installed = { "lua_ls", "clangd", "pyright", "bashls", "cmake", "ts_ls", "jsonls", "jdtls" },
                 automatic_enable = {
                     exclude = {
                         "rust_analyzer",
@@ -102,6 +109,8 @@ require('lazy').setup({
     {
         -- Autocompletion
         'hrsh7th/nvim-cmp',
+        event = 'InsertEnter',
+        config = function() require('custom.completion').setup() end,
         dependencies = {
             -- Snippet Engine & its associated nvim-cmp source
             'L3MON4D3/LuaSnip',
@@ -123,15 +132,39 @@ require('lazy').setup({
         ---@type snacks.Config
         opts = {
             bigfile = { enabled = true },
-            dashboard = { enabled = true },
-            explorer = { enabled = true },
-            indent = { enabled = true },
+            dashboard = { enabled = false },
+            explorer = { enabled = false },
+            indent = { enabled = false },
             input = { enabled = true },
             notifier = {
                 enabled = true,
                 timeout = 3000,
             },
-            picker = { enabled = true },
+            picker = {
+                enabled = true,
+                formatters = { file = { truncate = math.huge } },
+                config = function(opts) return require('custom.search').snacks_config(opts) end,
+                layout = { preset = 'preview_top' },
+                layouts = {
+                    preview_top = {
+                        layout = {
+                            box = 'vertical',
+                            backdrop = false,
+                            width = 0.9,
+                            height = 0.9,
+                            { win = 'preview', height = 0.55, border = 'rounded', title = '{preview}', title_pos = 'center' },
+                            {
+                                box = 'vertical',
+                                border = 'rounded',
+                                title = '{title} {live} {flags}',
+                                title_pos = 'center',
+                                { win = 'input', height = 1, border = 'bottom' },
+                                { win = 'list', border = 'none' },
+                            },
+                        },
+                    },
+                },
+            },
             quickfile = { enabled = true },
             scope = { enabled = true },
             scroll = { enabled = false },
@@ -270,6 +303,7 @@ require('lazy').setup({
     -- Useful plugin to show you pending keybinds.
     {
         'folke/which-key.nvim',
+        event = 'VeryLazy',
         opts = {
             win = {
                 border = 'single'
@@ -279,6 +313,7 @@ require('lazy').setup({
     {
         -- Adds git related signs to the gutter, as well as utilities for managing changes
         'lewis6991/gitsigns.nvim',
+        event = { 'BufReadPre', 'BufNewFile' },
         opts = {
             -- See `:help gitsigns.txt`
             signs = {
@@ -337,10 +372,12 @@ require('lazy').setup({
 
     {
         'akinsho/bufferline.nvim',
+        lazy = false,
         version = "*",
         dependencies = 'nvim-tree/nvim-web-devicons',
         opts = {
             options = {
+                always_show_bufferline = true,
                 max_name_length = 25,
                 tab_size = 20,
                 offsets = {
@@ -351,6 +388,22 @@ require('lazy').setup({
                         separator = true
                     }
                 },
+                diagnostics = "nvim_lsp",
+                diagnostics_indicator = function(_, _, diagnostics_dict, _)
+                    local e = diagnostics_dict.error or 0
+                    local w = diagnostics_dict.warning or 0
+                    local D = "%#BufferlineDiagDefault#"
+                    local E = "%#BufferlineErrCount#"
+                    local W = "%#BufferlineWarnCount#"
+                    if e == 0 and w == 0 then
+                        return ""
+                    elseif e > 0 and w == 0 then
+                        return string.format("%s(%s%d%s)", D, E, e, D)
+                    elseif e == 0 and w > 0 then
+                        return string.format("%s(%s%d%s)", D, W, w, D)
+                    end
+                    return string.format("%s(%s%d%s|%s%d%s)", D, E, e, D, W, w, D)
+                end,
             },
             highlights = {
                 buffer_selected = {
@@ -397,12 +450,18 @@ require('lazy').setup({
             vim.api.nvim_set_hl(0, "IndentBlanklineChar", { fg = "#eeeeee" })
 
             vim.api.nvim_set_hl(0, "LspInlayHint", { fg = "#808080" })
+
+            -- Bufferline diagnostic count colors (red errors, yellow warnings, neutral parens)
+            vim.api.nvim_set_hl(0, "BufferlineErrCount", { fg = "#ff5555", bold = true })
+            vim.api.nvim_set_hl(0, "BufferlineWarnCount", { fg = "#ffcc00", bold = true })
+            vim.api.nvim_set_hl(0, "BufferlineDiagDefault", { fg = "#aaaaaa", bold = true })
         end,
     },
 
     {
         -- Set lualine as statusline
         'nvim-lualine/lualine.nvim',
+        event = 'VeryLazy',
         -- See `:help lualine.txt`
         opts = {
             options = {
@@ -417,6 +476,7 @@ require('lazy').setup({
     {
         -- Add indentation guides even on blank lines
         'lukas-reineke/indent-blankline.nvim',
+        event = { 'BufReadPost', 'BufNewFile' },
         main = "ibl",
         config = function()
             require("ibl").setup({
@@ -435,12 +495,13 @@ require('lazy').setup({
     },
 
     -- "gc" to comment visual regions/lines
-    { 'numToStr/Comment.nvim',  opts = {} },
+    { 'numToStr/Comment.nvim', event = 'VeryLazy', opts = {} },
 
     -- Fuzzy Finder (files, lsp, etc)
     {
         'nvim-telescope/telescope.nvim',
-        branch = '0.1.x',
+        cmd = 'Telescope',
+        commit = '40aedd8a68c78a656a10a8d62d80c54af59420fb',
         dependencies = {
             'nvim-lua/plenary.nvim',
             -- Fuzzy Finder Algorithm which requires local dependencies to be built.
@@ -458,17 +519,10 @@ require('lazy').setup({
 
             {
                 "nvim-telescope/telescope-frecency.nvim",
-                config = function()
-                    require("telescope").load_extension "frecency"
-                end,
             },
 
             {
                 'nvim-telescope/telescope-live-grep-args.nvim',
-                dependencies = { 'nvim-telescope/telescope.nvim' },
-                config = function()
-                    require("telescope").load_extension("live_grep_args")
-                end,
             },
         },
         config = function()
@@ -476,6 +530,27 @@ require('lazy').setup({
 
             telescope.setup {
                 defaults = {
+                    mappings = {
+                        i = {
+                            ['<C-u>'] = false,
+                            ['<C-d>'] = false,
+                            ['<C-j>'] = require('telescope.actions').preview_scrolling_down,
+                            ['<C-k>'] = require('telescope.actions').preview_scrolling_up,
+                        },
+                    },
+                    sorting_strategy = 'ascending',
+                    path_display = {},
+                    layout_strategy = 'vertical',
+                    layout_config = {
+                        width = 0.9,
+                        height = 0.9,
+                        vertical = {
+                            mirror = false,
+                            prompt_position = 'top',
+                            preview_height = 0.55,
+                            preview_cutoff = 20,
+                        },
+                    },
                     prompt_prefix = "> ",
                     selection_caret = "> ",
                     vimgrep_arguments = {
@@ -486,13 +561,16 @@ require('lazy').setup({
                         '--line-number',
                         '--column',
                         '--smart-case',
-                        '--sort-files', -- Ensures consistent file ordering
                     },
                 },
+                extensions = {
+                    frecency = { auto_validate = false },
+                },
             }
+            require('custom.search').setup_telescope()
 
             -- Load any necessary extensions
-            telescope.load_extension('fzf')
+            pcall(telescope.load_extension, 'fzf')
             telescope.load_extension('live_grep_args')
             telescope.load_extension('frecency')
         end,
@@ -501,6 +579,7 @@ require('lazy').setup({
     {
         -- Highlight, edit, and navigate code
         'nvim-treesitter/nvim-treesitter',
+        event = { 'BufReadPost', 'BufNewFile' },
         dependencies = {
             'nvim-treesitter/nvim-treesitter-textobjects',
         },
@@ -518,6 +597,7 @@ require('lazy').setup({
 
     {
         'akinsho/toggleterm.nvim',
+        cmd = { 'ToggleTerm', 'TermExec' },
         version = "*",
         config = true,
         opts = {
@@ -534,6 +614,7 @@ require('lazy').setup({
 
     {
         "saecki/crates.nvim",
+        event = { 'BufReadPost Cargo.toml', 'BufNewFile Cargo.toml' },
         opts = {
             popup = {
                 autofocus = true,
@@ -699,9 +780,6 @@ require('lazy').setup({
         },
         ft = { 'rust' },
         config = function()
-            local capabilities = vim.lsp.protocol.make_client_capabilities()
-            capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
-
             vim.g.rustaceanvim = function()
                 return {
                     inlay_hints = {
@@ -715,7 +793,7 @@ require('lazy').setup({
                     server = {
                         on_attach = function(client, bufnr)
                             if vim.lsp.inlay_hint then
-                                vim.lsp.inlay_hint.enable(true, { 0 })
+                                vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
                             end
                         end
                     }
@@ -734,24 +812,23 @@ require('lazy').setup({
                 virtual_lines = false,
             })
 
-            -- Enable virtual_lines only for Rust
-            vim.api.nvim_create_autocmd("FileType", {
-                pattern = "rust",
-                callback = function()
-                    vim.diagnostic.config({
-                        virtual_lines = true
-                    })
-                end,
-            })
+
         end
     },
 
     {
         'nvimdev/dashboard-nvim',
-        event = 'VimEnter',
+        cmd = 'Dashboard',
+        event = function()
+            if vim.fn.argc() == 0 and vim.fn.filereadable(vim.fn.getcwd() .. '/.session.vim') == 0 then
+                return 'VimEnter'
+            end
+            return {}
+        end,
         config = function()
             require('dashboard').setup {
                 theme = 'hyper',
+                hide = { tabline = false },
                 config = {
                     week_header = {
                         enable = true
@@ -781,6 +858,7 @@ require('lazy').setup({
                     width = 0.8,
                     height = 0.9,
                     prompt_position = "top",
+                    mirror = false,
                     preview_cutoff = 20,
                     preview_height = function(_, _, max_lines)
                         return max_lines - 15
@@ -834,7 +912,7 @@ require('lazy').setup({
     --    Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
     --
     --    For additional information see: https://github.com/folke/lazy.nvim#-structuring-your-plugins
-    -- { import = 'custom.plugins' },
+    { import = 'custom.plugins' },
 }, {
     ui = {
         border = 'rounded',
@@ -940,6 +1018,7 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 -- Function to create persistent telescope pickers using built-in caching
 local function create_persistent_picker(picker_func, picker_title_pattern, opts)
     opts = opts or {}
+    opts.cwd = opts.cwd or vim.fn.getcwd()
 
     -- Set up caching options
     opts.cache_picker = {
@@ -955,7 +1034,8 @@ local function create_persistent_picker(picker_func, picker_title_pattern, opts)
     if cached_pickers and #cached_pickers > 0 then
         -- Look for a cached picker of the same type by matching prompt title
         for i, picker in ipairs(cached_pickers) do
-            if picker.prompt_title and picker.prompt_title:match(picker_title_pattern) then
+            if picker.prompt_title and picker.prompt_title:match(picker_title_pattern)
+                and picker.cwd == opts.cwd then
                 -- Resume the cached picker using internal.resume
                 require("telescope.builtin.__internal").resume {
                     cache_index = i,
@@ -999,7 +1079,7 @@ local function persistent_builtin()
 end
 
 local function persistent_lsp_references()
-    create_persistent_picker(require('telescope.builtin').lsp_references, "LSP References")
+    require('telescope.builtin').lsp_references()
 end
 
 local function persistent_frecency()
@@ -1007,38 +1087,12 @@ local function persistent_frecency()
 end
 
 local function persistent_lsp_definitions()
-    create_persistent_picker(require('telescope.builtin').lsp_definitions, "LSP Definitions")
+    require('telescope.builtin').lsp_definitions()
 end
 
 local function persistent_lsp_implementations()
-    create_persistent_picker(require('telescope.builtin').lsp_implementations, "LSP Implementations")
+    require('custom.lsp_navigation').implementations()
 end
-
--- [[ Configure Telescope ]]
--- See `:help telescope` and `:help telescope.setup()`
-require('telescope').setup {
-    defaults = {
-        mappings = {
-            i = {
-                ['<C-u>'] = false,
-                ['<C-d>'] = false,
-                ["<C-j>"] = require('telescope.actions').preview_scrolling_down,
-                ["<C-k>"] = require('telescope.actions').preview_scrolling_up,
-            },
-        },
-        -- Configure deterministic sorting for consistent results
-        sorting_strategy = "ascending",
-        file_sorter = require("telescope.sorters").get_fzy_sorter,
-        generic_sorter = require("telescope.sorters").get_fzy_sorter,
-        tiebreak = function(current_entry, existing_entry, _)
-            -- Break ties deterministically by comparing the ordinal values
-            return current_entry.ordinal < existing_entry.ordinal
-        end,
-    },
-}
-
--- Enable telescope fzf native, if installed
-pcall(require('telescope').load_extension, 'fzf')
 
 vim.keymap.set('n', '<leader>fa', persistent_builtin, { desc = 'All Telescope commands' })
 -- vim.keymap.set('n', '<leader>ff', persistent_find_files, { desc = 'File finds' })
@@ -1052,7 +1106,8 @@ vim.keymap.set('n', '<leader>fw', persistent_live_grep, { desc = 'Live grep with
 --  This function gets run when an LSP connects to a particular buffer.
 vim.api.nvim_create_autocmd('LspAttach', {
     desc = 'LSP actions',
-    callback = function()
+    callback = function(args)
+        local bufnr = args.buf
         local nmap = function(keys, func, desc)
             if desc then
                 desc = 'LSP: ' .. desc
@@ -1061,87 +1116,47 @@ vim.api.nvim_create_autocmd('LspAttach', {
         end
 
         nmap('<leader>lr', vim.lsp.buf.rename, 'LSP rename')
+        nmap('<leader>ld', function()
+            vim.diagnostic.open_float({ scope = 'line', border = 'rounded' })
+        end, 'Show line diagnostics')
         nmap('gd', persistent_lsp_definitions, '[G]oto [D]efinition')
         nmap('gr', persistent_lsp_references, '[G]oto [R]eferences')
         nmap('gI', persistent_lsp_implementations, '[G]oto [I]mplementation')
+        nmap('<leader>li', persistent_lsp_implementations, 'LSP [I]mplementations picker')
         nmap('K', vim.lsp.buf.hover, 'Hover Documentation')
     end
 })
 
-local cmp = require 'cmp'
-local luasnip = require 'luasnip'
-require('luasnip.loaders.from_vscode').lazy_load()
-luasnip.config.setup {}
-
-cmp.setup {
-    window = {
-        completion = cmp.config.window.bordered(),
-    },
-    snippet = {
-        expand = function(args)
-            luasnip.lsp_expand(args.body)
-        end,
-    },
-    completion = {
-        completeopt = 'menu,menuone,noinsert',
-    },
-    mapping = cmp.mapping.preset.insert {
-        ['<C-n>'] = cmp.mapping.select_next_item(),
-        ['<C-p>'] = cmp.mapping.select_prev_item(),
-        ['<C-b>'] = cmp.mapping.scroll_docs(-4),
-        ['<C-f>'] = cmp.mapping.scroll_docs(4),
-        ['<C-Space>'] = cmp.mapping.complete {},
-        ['<CR>'] = cmp.mapping.confirm {
-            behavior = cmp.ConfirmBehavior.Replace,
-            select = true,
-        },
-        ['<Tab>'] = cmp.mapping(function(fallback)
-            if cmp.visible() then
-                cmp.select_next_item()
-            elseif luasnip.expand_or_locally_jumpable() then
-                luasnip.expand_or_jump()
-            else
-                fallback()
-            end
-        end, { 'i', 's' }),
-        ['<S-Tab>'] = cmp.mapping(function(fallback)
-            if cmp.visible() then
-                cmp.select_prev_item()
-            elseif luasnip.locally_jumpable(-1) then
-                luasnip.jump(-1)
-            else
-                fallback()
-            end
-        end, { 'i', 's' }),
-    },
-    sources = {
-        { name = 'path' },
-        { name = 'nvim_lsp' },
-        { name = 'luasnip' },
-    },
-}
-
--- Autocommand to close NvimTree on closing the last buffer
-vim.api.nvim_create_autocmd("QuitPre", {
-    callback = function()
-        local invalid_win = {}
-        local wins = vim.api.nvim_list_wins()
-        for _, w in ipairs(wins) do
-            local bufname = vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(w))
-            if bufname:match("NvimTree_") ~= nil then
-                table.insert(invalid_win, w)
-            end
+-- Progress and notification floats must not keep the editor open after its last file closes.
+local function normal_windows(exclude)
+    local windows = {}
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+        if win ~= exclude and vim.api.nvim_win_get_config(win).relative == '' then
+            windows[#windows + 1] = win
         end
-        if #invalid_win == #wins - 1 then
-            -- Close all invalid windows (NvimTree)
-            for _, w in ipairs(invalid_win) do vim.api.nvim_win_close(w, true) end
-        end
+    end
+    return windows
+end
+
+vim.api.nvim_create_autocmd('WinClosed', {
+    callback = function(args)
+        local remaining = normal_windows(tonumber(args.match))
+        if #remaining ~= 1 then return end
+        local win = remaining[1]
+        if vim.bo[vim.api.nvim_win_get_buf(win)].filetype ~= 'NvimTree' then return end
+        vim.schedule(function()
+            if vim.api.nvim_win_is_valid(win) and #normal_windows() == 1
+                and vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'NvimTree' then
+                vim.cmd.qall()
+            end
+        end)
     end,
 })
 
 -- Auto load and start Obsession for persistent sessions
 vim.api.nvim_create_autocmd("VimEnter", {
-    callback = function()
+    -- Restore outside VimEnter so file reads and filetype detection run normally.
+    callback = vim.schedule_wrap(function()
         local session_file = vim.fn.getcwd() .. "/.session.vim"
         local cli_files = vim.fn.argv()
         local has_session = vim.fn.filereadable(session_file) == 1
@@ -1150,21 +1165,13 @@ vim.api.nvim_create_autocmd("VimEnter", {
         if #cli_files == 0 then
             -- If session exists, source it
             if has_session then
-                vim.cmd("source " .. session_file)
-                -- run filetype detect on all buffers
-                for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-                    if vim.api.nvim_buf_is_loaded(buf) then
-                        vim.api.nvim_buf_call(buf, function()
-                            vim.cmd("filetype detect")
-                        end)
-                    end
-                end
+                vim.cmd("source " .. vim.fn.fnameescape(session_file))
             end
 
             -- If not already recording with Obsession, start it
             -- NOTE: Obsession automatically keeps .session.vim updated on BufEnter and before exit
             if vim.g.this_obsession == nil then
-                vim.cmd("Obsess " .. session_file)
+                vim.cmd("Obsess " .. vim.fn.fnameescape(session_file))
             end
 
             if has_session then
@@ -1176,7 +1183,11 @@ vim.api.nvim_create_autocmd("VimEnter", {
         -- Open the last file if provided in the command line arguments
         if #cli_files > 0 then
             local last_file = cli_files[#cli_files]
-            vim.cmd("edit " .. vim.fn.fnameescape(last_file))
+            if vim.fn.isdirectory(last_file) == 1 then
+                require('nvim-tree.api').tree.open({ path = last_file })
+            elseif #cli_files > 1 then
+                vim.cmd("edit " .. vim.fn.fnameescape(last_file))
+            end
         end
-    end,
+    end),
 })

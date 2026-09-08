@@ -20,7 +20,7 @@ return {
     local _augroups = {}
     local get_augroup = function(client)
       if not _augroups[client.id] then
-        local group_name = 'kickstart-lsp-format-' .. client.name
+        local group_name = 'kickstart-lsp-format-' .. client.id
         local id = vim.api.nvim_create_augroup(group_name, { clear = true })
         _augroups[client.id] = id
       end
@@ -40,26 +40,21 @@ return {
         local bufnr = args.buf
 
         -- Only attach to clients that support document formatting
-        if not client.server_capabilities.documentFormattingProvider then
+        if not client or not client.server_capabilities.documentFormattingProvider then
           return
         end
 
-        -- Tsserver usually works poorly. Sorry you work with bad languages
-        -- You can remove this line if you know what you're doing :)
-        if client.name == 'tsserver' then
-          return
-        end
-
-        -- Filter out C and C++ files
-        if vim.bo.filetype == 'c' or vim.bo.filetype == 'cpp'
-            or vim.bo.filetype == 'objc' or vim.bo.filetype == 'objcpp' then
+        -- Only auto-format Rust on save; every other filetype is opt-in via :lua vim.lsp.buf.format().
+        if vim.bo[bufnr].filetype ~= 'rust' then
           return
         end
 
         -- Create an autocmd that will run *before* we save the buffer.
         --  Run the formatting command for the LSP that has just attached.
+        local group = get_augroup(client)
+        vim.api.nvim_clear_autocmds { group = group, buffer = bufnr, event = 'BufWritePre' }
         vim.api.nvim_create_autocmd('BufWritePre', {
-          group = get_augroup(client),
+          group = group,
           buffer = bufnr,
           callback = function()
             if not format_is_enabled then
