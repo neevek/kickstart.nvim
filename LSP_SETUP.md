@@ -19,6 +19,14 @@ The configuration keeps the existing leader (comma), Telescope navigation, NvimT
 
 The original, already-modified configuration was backed up to `~/.local/state/nvim/config-backups/20260907-performance-lsp/`.
 
+## Tree-sitter compatibility
+
+Neovim 0.12 changed the captures passed into Tree-sitter query directives. The old frozen plugin branch expected a single node, which caused the Markdown `attempt to call method 'range' (a nil value)` crash. The config now pins the supported `main` branch (`5cb0114`) and uses Neovim's built-in highlighting API. Markdown, inline Markdown, and fenced-code parsers are installed along with the configured programming languages. Unsupported filetypes retain syntax highlighting as a fallback.
+
+This configuration now requires Neovim 0.12+, a C compiler and tree-sitter CLI 0.26.1+ (`brew install tree-sitter-cli`; 0.27.0 is installed here). Restart Neovim after the migration so old query handlers are unloaded. No manual `:TSUpdate` is needed on this machine; the parsers are already rebuilt.
+
+Generic native debugging and Apollo launch instructions are in [DEBUGGING.md](DEBUGGING.md).
+
 ## Search, layout, and Telescope version
 
 - Both Telescope and Snacks use a vertical layout with the preview above the results. Snacks provides the `Files` and `Grep` pickers on `,ff` and `,/`; `,fw` uses Telescope's grep-with-arguments extension.

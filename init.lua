@@ -455,6 +455,18 @@ require('lazy').setup({
             vim.api.nvim_set_hl(0, "BufferlineErrCount", { fg = "#ff5555", bold = true })
             vim.api.nvim_set_hl(0, "BufferlineWarnCount", { fg = "#ffcc00", bold = true })
             vim.api.nvim_set_hl(0, "BufferlineDiagDefault", { fg = "#aaaaaa", bold = true })
+
+            -- Give split borders and inactive panel labels more definition on black.
+            local function panel_highlights()
+                vim.api.nvim_set_hl(0, "WinSeparator", { fg = "#5c72a6", bg = "#000000" })
+                vim.api.nvim_set_hl(0, "StatusLine", { fg = "#e1e9ff", bg = "#35476b" })
+                vim.api.nvim_set_hl(0, "StatusLineNC", { fg = "#b5c3e3", bg = "#28344d" })
+            end
+            panel_highlights()
+            vim.api.nvim_create_autocmd("ColorScheme", {
+                group = vim.api.nvim_create_augroup("custom-panel-highlights", { clear = true }),
+                callback = panel_highlights,
+            })
         end,
     },
 
@@ -463,14 +475,21 @@ require('lazy').setup({
         'nvim-lualine/lualine.nvim',
         event = 'VeryLazy',
         -- See `:help lualine.txt`
-        opts = {
-            options = {
-                icons_enabled = false,
-                theme = 'tokyodark',
-                component_separators = '|',
-                section_separators = '',
-            },
-        },
+        opts = function()
+            local theme = vim.deepcopy(require('lualine.themes.tokyodark'))
+            for _, section in pairs(theme.inactive) do
+                section.fg = '#b5c3e3'
+                section.bg = '#28344d'
+            end
+            return {
+                options = {
+                    icons_enabled = false,
+                    theme = theme,
+                    component_separators = '|',
+                    section_separators = '',
+                },
+            }
+        end,
     },
 
     {
@@ -579,20 +598,11 @@ require('lazy').setup({
     {
         -- Highlight, edit, and navigate code
         'nvim-treesitter/nvim-treesitter',
-        event = { 'BufReadPost', 'BufNewFile' },
-        dependencies = {
-            'nvim-treesitter/nvim-treesitter-textobjects',
-        },
+        branch = 'main',
+        commit = '5cb0114e6242625db56dd6440e945ed1ece10bc7',
+        lazy = false,
         build = ':TSUpdate',
-        config = function()
-            require('nvim-treesitter.configs').setup {
-                ensure_installed = { "c", "lua", "rust", "cpp" },
-                highlight = {
-                    enable = true,
-                    additional_vim_regex_highlighting = false, -- Disable additional regex highlighting (optional)
-                },
-            }
-        end,
+        config = function() require('custom.treesitter').setup() end,
     },
 
     {
@@ -625,150 +635,6 @@ require('lazy').setup({
             }
         }
     },
-
-
-    -- {
-    --     "mfussenegger/nvim-dap",
-    --     dependencies = {
-    --         {
-    --             "rcarriga/nvim-dap-ui",
-    --             "nvim-neotest/nvim-nio",
-    --             "jay-babu/mason-nvim-dap.nvim",
-    --             "theHamsta/nvim-dap-virtual-text",
-    --         }
-    --     },
-    --     config = function()
-    --         require('mason-nvim-dap').setup({
-    --             ensure_installed = { 'codelldb' }
-    --         })
-    --
-    --         require("nvim-dap-virtual-text").setup()
-    --
-    --         local mason_registry = require("mason-registry")
-    --         local codelldb = mason_registry.get_package("codelldb")
-    --         local extension_path = codelldb:get_install_path() .. "/extension/"
-    --         local codelldb_path = extension_path .. "adapter/codelldb"
-    --
-    --         local dap = require("dap")
-    --         dap.adapters.codelldb = {
-    --             type = 'server',
-    --             port = "${port}",
-    --             executable = {
-    --                 -- Change this to your path!
-    --                 command = codelldb_path,
-    --                 args = { "--port", "${port}" },
-    --             }
-    --         }
-    --         dap.configurations.rust = {
-    --             {
-    --                 name = "Launch file",
-    --                 type = "codelldb",
-    --                 request = "launch",
-    --                 program = function()
-    --                     return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
-    --                 end,
-    --                 cwd = '${workspaceFolder}',
-    --                 stopOnEntry = false,
-    --             },
-    --         }
-    --
-    --         vim.keymap.set('n', '<F5>', function() require('dap').continue() end)
-    --         vim.keymap.set('n', '<Leader>n', function() require('dap').step_over() end)
-    --         vim.keymap.set('n', '<Leader>s', function() require('dap').step_into() end)
-    --         vim.keymap.set('n', '<Leader>o', function() require('dap').step_out() end)
-    --         vim.keymap.set('n', '<Leader>b', function() require('dap').toggle_breakpoint() end)
-    --         vim.keymap.set('n', '<Leader>lp',
-    --             function() require('dap').set_breakpoint(nil, nil, vim.fn.input('Log point message: ')) end)
-    --         vim.keymap.set('n', '<Leader>dr', function() require('dap').repl.open() end)
-    --         vim.keymap.set('n', '<Leader>dl', function() require('dap').run_last() end)
-    --         vim.keymap.set('n', '<Leader>dd', function() require('dap').continue() end)
-    --         vim.keymap.set('n', '<Leader>dt', function() require('dap').terminate() end)
-    --         vim.keymap.set({ 'n', 'v' }, '<Leader>dh', function() require('dap.ui.widgets').hover() end)
-    --         vim.keymap.set({ 'n', 'v' }, '<Leader>dp', function() require('dap.ui.widgets').preview() end)
-    --         vim.keymap.set('n', '<Leader>df', function()
-    --             local widgets = require('dap.ui.widgets')
-    --             widgets.centered_float(widgets.frames)
-    --         end)
-    --         vim.keymap.set('n', '<Leader>ds', function()
-    --             local widgets = require('dap.ui.widgets')
-    --             widgets.centered_float(widgets.scopes)
-    --         end)
-    --
-    --         require("neodev").setup({
-    --             library = { plugins = { "nvim-dap-ui" }, types = true },
-    --         })
-    --     end
-    -- },
-    --
-    -- {
-    --     "Weissle/persistent-breakpoints.nvim",
-    --     config = function()
-    --         local opts = { noremap = true, silent = true }
-    --         vim.keymap.set("n", "<Leader>db", function() require('persistent-breakpoints.api').toggle_breakpoint() end,
-    --             opts)
-    --         require('persistent-breakpoints').setup {
-    --             load_breakpoints_event = { "BufReadPost" }
-    --         }
-    --     end,
-    -- },
-    --
-    -- {
-    --     "rcarriga/nvim-dap-ui",
-    --     keys = {
-    --         {
-    --             "<leader>du",
-    --             function()
-    --                 require("dapui").toggle()
-    --             end,
-    --             silent = true,
-    --         },
-    --     },
-    --     opts = {
-    --         mappings = {
-    --             expand = { "<CR>", "<2-LeftMouse>" },
-    --             open = "o",
-    --             remove = "d",
-    --             edit = "e",
-    --             repl = "r",
-    --             toggle = "t",
-    --         },
-    --         layouts = {
-    --             {
-    --                 elements = {
-    --                     { id = "console", size = 0.70 },
-    --                     { id = "repl",    size = 0.30 },
-    --                 },
-    --                 size = 0.20,
-    --                 position = "bottom",
-    --             },
-    --             {
-    --                 elements = {
-    --                     { id = "watches",     size = 0.20 },
-    --                     { id = "scopes",      size = 0.20 },
-    --                     { id = "stacks",      size = 0.40 },
-    --                     { id = "breakpoints", size = 0.20 },
-    --                 },
-    --                 size = 0.25,
-    --                 position = "right",
-    --             },
-    --         },
-    --         controls = {
-    --             enabled = true,
-    --             element = "repl",
-    --         },
-    --         floating = {
-    --             max_height = 0.9,
-    --             max_width = 0.5,
-    --             border = vim.g.border_chars,
-    --             mappings = {
-    --                 close = { "q", "<Esc>" },
-    --             },
-    --         },
-    --     },
-    --     config = function(_, opts)
-    --         require("dapui").setup(opts)
-    --     end,
-    -- },
 
 
     {
@@ -904,7 +770,7 @@ require('lazy').setup({
     --       These are some example plugins that I've included in the kickstart repository.
     --       Uncomment any of the lines below to enable them.
     require 'kickstart.plugins.autoformat',
-    -- require 'kickstart.plugins.debug',
+    require 'kickstart.plugins.debug',
 
     -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
     --    You can use this folder to prevent any conflicts with this init.lua if you're interested in keeping

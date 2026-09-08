@@ -44,6 +44,10 @@ Telescope is pinned to upstream commit `40aedd8a68c78a656a10a8d62d80c54af59420fb
 
 Completion, Telescope, NvimTree, and terminal setup must stay inside their lazy plugin configs. Top-level `require()` calls can defeat lazy loading.
 
+Tree-sitter uses the pinned `main` branch and Neovim 0.12's highlighting API in `lua/custom/treesitter.lua`. The frozen `master` branch registers obsolete single-node directives; Markdown injections crash with `attempt to call method 'range'` on 0.12. Keep Tree-sitter eager as required upstream, and keep the parser CLI installed. Validate Markdown fenced-code parsing with `tests/treesitter.lua` as well as the startup UI tests.
+
+Native debugging is generic and lazy-loaded through `lua/kickstart/plugins/debug.lua` and `lua/custom/debug.lua`. Prefer Xcode's `lldb-dap` on macOS; `NVIM_LLDB_DAP` overrides it. Project profiles live in `.vscode/launch.json`, automatically read by nvim-dap from the current working directory. Do not hardcode Apollo paths into the global debugger or add another launch.json loader. See `DEBUGGING.md`; `python3 tests/debug_smoke.py` verifies real breakpoints, evaluation and stepping.
+
 Apollo platform profiles, refresh commands, dependency prerequisites, and server setup are documented in `LSP_SETUP.md`. `:ApolloLspProfile` switches the shared-code platform. Python and the native compilation databases are configured locally in each checkout.
 
 ### Formatting
@@ -97,7 +101,8 @@ The configuration follows these patterns:
 
 ## Dependencies
 
-- Neovim >= 0.11.7 (verified with 0.12.5)
+- Neovim >= 0.12 (verified with 0.12.5)
+- tree-sitter CLI >= 0.26.1 and a C compiler (parser installation; `brew install tree-sitter-cli` on macOS)
 - ripgrep (for telescope search functionality)
 - Git (for plugin installation)
 - For Rust development: rust-analyzer (automatically managed by Mason)
