@@ -21,6 +21,9 @@ function M.setup()
   local dapui = require 'dapui'
   dap.adapters.lldb = lldb_adapter
   dap.adapters['lldb-dap'] = lldb_adapter
+  dap.adapters['android-lldb'] = require('custom.android_debug').adapter(lldb_adapter)
+  -- Android LLDB reports a stop for each thread; resuming one resumes the process.
+  dap.defaults['android-lldb'].auto_continue_if_many_stopped = false
   local launch = {
     name = 'Launch native executable',
     type = 'lldb',

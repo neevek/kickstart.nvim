@@ -78,8 +78,43 @@ Press `F5` / `,dc` and select **Apollo Demo (macOS)**. It opens the demo immedia
 
 The GUI Debug build is available. The separately loaded `sdk-cxx/build/libu3player.dylib` still comes from an older engine build: LLDB reports a stale debug-map object for `ApolloSettings.o`. Rebuild and stage the engine and its matching symbols before expecting reliable debugging of recently edited engine code. Rebuilding the GUI alone does not rebuild that dylib. Keep matching object files or a generated dSYM available; optimized code can also skip lines or hide variables.
 
+## Android native debugging
+
+The `android-lldb` adapter attaches to a running debuggable Android app over ADB. It detects the app's ABI, installs a temporary NDK `lldb-server` under the app's own UID, forwards a private debugger socket, and removes its temporary files and forward when the session ends. No root is needed. It uses the same LLDB panels and shortcuts as desktop debugging. Symbols load on demand, with LLDB's index cache enabled to reduce repeated indexing.
+
+For Apollo, open **com.apollo.demo** on the device, start Neovim from `u3player4`, and select **Apollo Demo (Android)** with `F5` / `,dc`. Set native breakpoints with `,db`, then exercise the relevant feature on the phone. Attach resumes automatically; it does not set a breakpoint at `main`. Use `,dd` to detach and leave the app running; `,dt` terminates the debugged process.
+
+The profile points LLDB at `sdk-android/AndroidDemo/u3player/build/intermediates/ndkBuild/debug/obj/local/arm64-v8a`. The installed APK's `libu3player.so` and that local debug library were checked to have matching build ID `da9f3a59018443d2f41df712881f094a2de6eefd`. Recheck after changing builds. A pending breakpoint can become resolved when the app loads the native library. Source files edited after the binary was built still require a rebuild.
+
+For another project, add a profile to `.vscode/launch.json`:
+
+```json
+{
+  "name": "Android native attach",
+  "type": "android-lldb",
+  "request": "attach",
+  "android": { "package": "com.example.app" },
+  "stopOnEntry": false,
+  "initCommands": [
+    "settings set target.exec-search-paths \"${workspaceFolder}/path/to/unstripped/arm64-v8a\""
+  ]
+}
+```
+
+Set `android.serial` if several devices are connected. Set `android.process` to an exact process name such as `com.example.app:player` when native playback runs in a service process. `android.package` remains the owning app package for `run-as`. Match the symbols to the installed library and use `sourceMap` if its build machine had different source paths.
+
+Requirements: Python 3.9+, `adb` on PATH, an authorized device, a debuggable app already running, an Android NDK, and `lldb-dap` with Android support (Xcode's is used here). The adapter discovers NDK servers under `ANDROID_SDK_ROOT` / `ANDROID_HOME`, falling back to `~/Library/Android/sdk`; `NVIM_ANDROID_LLDB_SERVER` overrides the device server binary. `NVIM_LLDB_DAP` overrides the host adapter. Java/Kotlin debugging needs a separate adapter. Android app logs generally go to `adb logcat`, rather than the DAP REPL.
+
+If attachment fails, check `:DapShowLog`, `adb devices`, and `adb shell run-as <package> id`. Android LLDB emits stopped events for several threads at once; this adapter disables nvim-dap's automatic continuation of secondary threads so a breakpoint remains stopped.
+
 ## Verification
 
 `python3 tests/debug_smoke.py` builds a temporary C++ program and exercises the actual installed adapter: project profile discovery, source breakpoint, expression evaluation, step over and successful exit. It also verifies that normal editor startup leaves DAP unloaded.
+
+During the Android setup, this desktop smoke check encountered a macOS LLDB-DAP launch failure (signal 9 before the breakpoint). It also reproduces with `nvim -u NONE` and only nvim-dap, while the LLDB CLI launches the same fixture successfully. The Android device checks below pass; the desktop DAP failure remains unresolved.
+
+`python3 tests/android_adapter.py` uses fake ADB and LLDB executables to verify that setup preserves the DAP input stream and cleans up forwards and temporary files on success and setup failure.
+
+On the connected ARM64 device, Neovim was verified against `com.apollo.demo`: attach, a native function breakpoint in `__epoll_pwait`, 36 threads, resolved stack frames, expression evaluation, and detach. After detach the app was running (`TracerPid: 0`, state `S`) and the ADB forward list was empty. The wrapper clears a lingering Android attach SIGSTOP only when the original process identity still matches and its tracer has exited. Apollo engine playback breakpoints have not yet been exercised; the matching debug symbols are configured.
 
 Apollo's source debugging was verified at `main.cpp:183`, with `argc` evaluated as `2`. The default launch now runs without this automatic breakpoint. Playback and current engine symbols require separate validation. A separate native process test also verified attach, variable evaluation, and detach with the process still running.

@@ -48,6 +48,8 @@ Tree-sitter uses the pinned `main` branch and Neovim 0.12's highlighting API in 
 
 Native debugging is generic and lazy-loaded through `lua/kickstart/plugins/debug.lua` and `lua/custom/debug.lua`. Prefer Xcode's `lldb-dap` on macOS; `NVIM_LLDB_DAP` overrides it. Project profiles live in `.vscode/launch.json`, automatically read by nvim-dap from the current working directory. Do not hardcode Apollo paths into the global debugger or add another launch.json loader. See `DEBUGGING.md`; `python3 tests/debug_smoke.py` verifies real breakpoints, evaluation and stepping.
 
+Android native profiles use `android-lldb` with project-local `android.package` / optional `serial` and `process`. The wrapper in `scripts/android_lldb.py` owns its temporary server and ADB forward. All ADB subprocesses must use `stdin=DEVNULL`: inherited stdin consumes Neovim's DAP packets. Keep `auto_continue_if_many_stopped=false` scoped to this adapter; Android sends a stop event per thread, and resuming any one can resume the entire process. Run live debugger tests sequentially and isolate their state directories to avoid shared DAP log truncation.
+
 Apollo platform profiles, refresh commands, dependency prerequisites, and server setup are documented in `LSP_SETUP.md`. `:ApolloLspProfile` switches the shared-code platform. Python and the native compilation databases are configured locally in each checkout.
 
 ### Formatting
