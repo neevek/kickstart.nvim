@@ -19,9 +19,33 @@ end
 function M.setup()
   local dap = require 'dap'
   local dapui = require 'dapui'
+  require('custom.debug_build').setup()
+  local function highlight_signs()
+    local colors = {
+      DapBreakpoint = '#ff667a',
+      DapBreakpointCondition = '#ffcc66',
+      DapBreakpointRejected = '#ff9966',
+      DapLogPoint = '#73daca',
+      DapStopped = '#c3e88d',
+    }
+    for name, color in pairs(colors) do
+      vim.api.nvim_set_hl(0, name, { fg = color, bold = true })
+      local sign = vim.fn.sign_getdefined(name)[1]
+      if sign then
+        sign.texthl = name
+        vim.fn.sign_define(name, sign)
+      end
+    end
+  end
+  highlight_signs()
+  vim.api.nvim_create_autocmd('ColorScheme', {
+    group = vim.api.nvim_create_augroup('custom-debug-signs', { clear = true }),
+    callback = highlight_signs,
+  })
   dap.adapters.lldb = lldb_adapter
   dap.adapters['lldb-dap'] = lldb_adapter
   dap.adapters['android-lldb'] = require('custom.android_debug').adapter(lldb_adapter)
+  require('custom.android_debug').setup_logcat()
   -- Android LLDB reports a stop for each thread; resuming one resumes the process.
   dap.defaults['android-lldb'].auto_continue_if_many_stopped = false
   local launch = {

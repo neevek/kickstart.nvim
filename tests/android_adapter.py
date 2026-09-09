@@ -22,6 +22,7 @@ elif args[0] == 'pull': pathlib.Path(args[-1]).write_text('test executable')
 elif args[:2] == ['forward', 'tcp:0']: print('45678')
 elif args[:2] == ['shell', 'pidof']: print('1234')
 elif args[:2] == ['shell', 'getprop']: print('arm64-v8a')
+elif args[:4] == ['shell', 'cmd', 'package', 'resolve-activity']: print('com.example.app/.MainActivity')
 elif args[:2] == ['shell', 'run-as']:
     command = args[-1]
     if 'readlink' in command: print('/system/bin/app_process64')
@@ -53,14 +54,17 @@ sys.stdout.buffer.write(sys.stdin.buffer.read())
     command = ["python3", str(repo / "scripts/android_lldb.py"), "--package", "com.example.app",
                "--lldb-dap", str(adapter), "--command-file", str(command_file)]
     packet = b'Content-Length: 24\r\n\r\n{"command":"initialize"}'
-    for failed, reused_pid in ((False, False), (True, False), (False, True)):
+    for failed, reused_pid, launch in ((False, False, False), (True, False, False), (False, True, False), (False, False, True)):
         run_env = {**env, **({"ADB_TEST_FAIL": "1"} if failed else {}),
                    **({"ADB_TEST_REUSED_PID": "1"} if reused_pid else {})}
-        result = subprocess.run(command, input=packet, capture_output=True, env=run_env, timeout=20)
+        result = subprocess.run(command + (["--launch"] if launch else []), input=packet,
+                                capture_output=True, env=run_env, timeout=20)
         assert (result.returncode != 0) == failed, result.stderr.decode()
         if not failed:
             assert result.stdout == packet, "ADB consumed or corrupted the DAP input stream"
         calls = [json.loads(line) for line in log.read_text().splitlines()]
+        started = any(call[2:5] == ['shell', 'am', 'start'] for call in calls)
+        assert started == launch, 'Attach must not restart the app; launch must start it'
         assert ["-s", "device-1", "forward", "--remove", "tcp:45678"] in calls
         resumed = any('kill -CONT 1234' in call[-1] for call in calls)
         assert resumed != reused_pid, 'Only the original process should be resumed after detach'

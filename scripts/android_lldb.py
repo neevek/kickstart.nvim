@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run lldb-dap with a private Android gdbserver and clean up its ADB forward."""
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -60,6 +61,27 @@ class AndroidSession:
         fields = stat.rsplit(")", 1)[-1].split()
         return (fields[0], fields[19]) if len(fields) >= 20 else None
 
+    def launch_app(self):
+        component = self.args.activity
+        if not component:
+            output = self.call("shell", "cmd", "package", "resolve-activity", "--brief",
+                               "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER",
+                               self.args.package)
+            component = next((line.strip() for line in reversed(output.splitlines())
+                              if line.strip().startswith(self.args.package + "/")), None)
+        if not component or not re.fullmatch(re.escape(self.args.package) + r"/[A-Za-z0-9_.$]+", component):
+            raise RuntimeError("No launcher activity found; set android.activity to package/activity")
+        # Do not force-stop an app that another debugger currently owns.
+        for pid in self.call("shell", "pidof", self.args.process or self.args.package, check=False).split():
+            if pid.isdigit():
+                status = self.app_shell("cat /proc/" + pid + "/status")
+                tracer = re.search(r"^TracerPid:\s+(\d+)$", status, re.MULTILINE)
+                if tracer and tracer[1] != "0":
+                    raise RuntimeError("Detach the existing debugger before launching this app")
+        output = self.call("shell", "am", "start", "-S", "-W", "-n", shlex.quote(component), timeout=30)
+        if re.search(r"^Error", output, re.MULTILINE):
+            raise RuntimeError(output)
+
     def prepare(self):
         devices = [line.split()[0] for line in self.call("devices").splitlines()[1:]
                    if len(line.split()) >= 2 and line.split()[1] == "device"]
@@ -72,7 +94,14 @@ class AndroidSession:
             raise RuntimeError("Android device is not online: " + serial)
         self.base += ["-s", serial]
         self.call("shell", "run-as", self.args.package, "id")
+        if self.args.launch:
+            self.launch_app()
         pid = self.call("shell", "pidof", self.args.process or self.args.package, check=False).split()
+        if self.args.launch:
+            deadline = time.monotonic() + 10
+            while not pid and time.monotonic() < deadline:
+                time.sleep(0.2)
+                pid = self.call("shell", "pidof", self.args.process or self.args.package, check=False).split()
         if len(pid) != 1:
             raise RuntimeError("Open the Android app first; expected one running process for " +
                                (self.args.process or self.args.package))
@@ -112,6 +141,7 @@ class AndroidSession:
         else:
             raise RuntimeError("Android lldb-server did not open its socket")
         Path(self.args.command_file).write_text("gdb-remote 127.0.0.1:" + self.port + "\n")
+        Path(self.args.command_file + '.json').write_text(json.dumps({'serial': serial, 'pid': self.pid}))
         print("Android debugger: " + self.args.package + " PID " + pid[0] + " on " + serial,
               file=sys.stderr, flush=True)
         return serial
@@ -149,7 +179,7 @@ class AndroidSession:
                     self.app_shell("kill -CONT " + self.pid, check=False, timeout=5)
             except (OSError, subprocess.TimeoutExpired):
                 pass
-        for path in (self.args.command_file, self.args.command_file + ".exe"):
+        for path in (self.args.command_file, self.args.command_file + ".exe", self.args.command_file + '.json'):
             Path(path).unlink(missing_ok=True)
 
 
@@ -158,6 +188,8 @@ def main():
     parser.add_argument("--package", required=True)
     parser.add_argument("--process")
     parser.add_argument("--serial")
+    parser.add_argument("--launch", action="store_true")
+    parser.add_argument("--activity")
     parser.add_argument("--lldb-dap", required=True)
     parser.add_argument("--command-file", required=True)
     args = parser.parse_args()

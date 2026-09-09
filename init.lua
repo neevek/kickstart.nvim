@@ -461,6 +461,13 @@ require('lazy').setup({
                 vim.api.nvim_set_hl(0, "WinSeparator", { fg = "#5c72a6", bg = "#000000" })
                 vim.api.nvim_set_hl(0, "StatusLine", { fg = "#e1e9ff", bg = "#35476b" })
                 vim.api.nvim_set_hl(0, "StatusLineNC", { fg = "#b5c3e3", bg = "#28344d" })
+                vim.api.nvim_set_hl(0, "SnacksPickerDir", { fg = "#929db5" })
+                vim.api.nvim_set_hl(0, "SnacksPickerMatch", { fg = "#d5a6ff", bold = true })
+                vim.api.nvim_set_hl(0, "TelescopeMatching", { fg = "#d5a6ff", bold = true })
+                vim.api.nvim_set_hl(0, "SnacksPickerPathIgnored", { fg = "#929db5" })
+                vim.api.nvim_set_hl(0, "SnacksPickerPathHidden", { fg = "#929db5" })
+                vim.api.nvim_set_hl(0, "SnacksPickerListCursorLine", { bg = "#303a50" })
+                vim.api.nvim_set_hl(0, "NvimTreeCursorLine", { bg = "#283246", fg = "#e1e7f2", bold = true })
             end
             panel_highlights()
             vim.api.nvim_create_autocmd("ColorScheme", {
@@ -800,6 +807,8 @@ vim.g.indent_blankline_filetype_exclude = { 'dashboard' }
 vim.opt.whichwrap = "b,s"
 vim.opt.ignorecase = true
 vim.opt.cmdheight = 0
+-- Restore the viewport as well as the cursor when returning through jump history.
+vim.opt.jumpoptions:append("view")
 
 -- Set highlight on search
 vim.o.hlsearch = true

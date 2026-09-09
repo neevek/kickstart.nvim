@@ -58,33 +58,55 @@ Create `.vscode/launch.json` in the project's root:
 }
 ```
 
-Adjust `program`, `cwd` and `args` to the project's binary and runtime resources. `lldb-dap` is also accepted as the adapter type. nvim-dap reads this file automatically when starting a session; no sourcing or manual import is needed. It does not run VS Code `preLaunchTask` build tasks: build in a terminal before starting a new debug session.
+Adjust `program`, `cwd` and `args` to the project's binary and runtime resources. `lldb-dap` is also accepted as the adapter type. nvim-dap reads this file automatically when starting a session; no sourcing or manual import is needed. The custom build integration below adds support for `preLaunchTask`.
+
+## Build and Launch
+
+Select **Build and Launch Apollo Demo (macOS / Windows / Android)** with `F5` / `,dc`. The build opens in a terminal pane; launch proceeds only after every task succeeds. Failure retains the terminal output and aborts launch. `:DapBuildCancel` cancels the running build and prevents launch. Plain Launch and Attach profiles continue to reuse existing binaries.
+
+Project `.vscode/tasks.json` defines the commands; `.vscode/launch.json` selects the final task through `preLaunchTask`:
+
+| Platform | Build sequence |
+| --- | --- |
+| macOS | Canonical `sonic_build_cxx.py --config config_mac.ini` engine build, then Debug CMake GUI build in the original build directory |
+| Windows | Canonical `sonic_build_cxx.py --config config_windows.ini` engine build, then `build.bat build Debug` |
+| Android | Gradle `:demo_source:assembleDebug`, including native project dependencies, then `adb install -r -t`, followed by launch and LLDB attach |
+
+The platform configs determine native build options and architecture. Android's task passes the absolute `config_android.ini` path, and the native build exports symbols to `sdk-android/AndroidDemo/obj/arm64-v8a`. Use a compatible JDK (Java 17 for this Gradle 7.5.1 project) before starting Neovim. Windows requires its normal native Python/MSVC/Git Bash build environment. With multiple Android devices, set `ANDROID_SERIAL` for the install task and use the same device in the launch profile.
+
+For other projects, add a `type: "process"` task with `command`, `args`, optional `options.cwd` / `options.env`, and reference its label from `preLaunchTask`. The integration supports `dependsOn` labels, runs dependencies sequentially, and honors `osx` / `windows` / `linux` overrides. `${workspaceFolder}` and `${env:NAME}` are expanded. Shell/background tasks and problem-matcher parsing are not implemented; use an explicit shell executable as a process task when needed. Commands should return nonzero on failure.
+
+The task graphs and generic execution/failure handling were tested; full Apollo engine builds and APK installation were not run as part of configuring these profiles.
 
 ## Apollo demo on this Mac
 
-The local `u3player4/.vscode/launch.json` contains **Apollo Demo (macOS)** and **Attach to Apollo Demo (macOS)**, alongside the existing Windows configuration. The global Neovim config contains no Apollo-specific debugger paths.
+The local `u3player4/.vscode/launch.json` contains **Launch Apollo Demo (macOS)** and **Attach to Apollo Demo (macOS)**, alongside the existing Windows configuration. The global Neovim config contains no Apollo-specific debugger paths.
 
 Build or refresh the GUI from the project root:
 
 ```sh
 cd ~/workspace/apollo/u3player4
-cmake -S sdk-cxx/cxx_demo_source/gui -B .cache/nvim-dap/gui-debug \
+cmake -S sdk-cxx/cxx_demo_source/gui -B sdk-cxx/cxx_demo_source/gui/build \
   -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=arm64
-cmake --build .cache/nvim-dap/gui-debug --target apolloplayer -j 4
+cmake --build sdk-cxx/cxx_demo_source/gui/build --target apolloplayer -j 4
 nvim sdk-cxx/cxx_demo_source/gui/main.cpp
 ```
 
-Press `F5` / `,dc` and select **Apollo Demo (macOS)**. It opens the demo immediately unless a breakpoint is hit. This profile runs `.cache/nvim-dap/gui-debug/apolloplayer` with `sdk-cxx/build` as its working directory for staged libraries and resources. Add a media path in the profile's `args` to launch with a video.
+Press `F5` / `,dc` and select **Launch Apollo Demo (macOS)**. It opens the demo immediately unless a breakpoint is hit. The normal build stages the executable in `sdk-cxx/build`. This profile runs `sdk-cxx/build/apolloplayer` with `sdk-cxx/build` as its working directory for staged libraries and resources. Add a media path in the profile's `args` to launch with a video.
 
 The GUI Debug build is available. The separately loaded `sdk-cxx/build/libu3player.dylib` still comes from an older engine build: LLDB reports a stale debug-map object for `ApolloSettings.o`. Rebuild and stage the engine and its matching symbols before expecting reliable debugging of recently edited engine code. Rebuilding the GUI alone does not rebuild that dylib. Keep matching object files or a generated dSYM available; optimized code can also skip lines or hide variables.
+
+## Windows native debugging
+
+The project profiles **Launch Apollo Demo (Windows)** and **Attach to Apollo Demo (Windows)** use the configured `lldb` adapter. Launch runs `${workspaceFolder}/sdk-cxx/build/apolloplayer.exe` with empty arguments and that directory as the working directory. Attach opens a process picker. On Windows, provide `lldb-dap.exe` on PATH or set `NVIM_LLDB_DAP`; keep matching PDB/debug symbols available. These Windows profiles have been configuration-checked on macOS, but have not been runtime-tested on a Windows host. See [LLDB platform support](https://lldb.llvm.org/).
 
 ## Android native debugging
 
 The `android-lldb` adapter attaches to a running debuggable Android app over ADB. It detects the app's ABI, installs a temporary NDK `lldb-server` under the app's own UID, forwards a private debugger socket, and removes its temporary files and forward when the session ends. No root is needed. It uses the same LLDB panels and shortcuts as desktop debugging. Symbols load on demand, with LLDB's index cache enabled to reduce repeated indexing.
 
-For Apollo, open **com.apollo.demo** on the device, start Neovim from `u3player4`, and select **Apollo Demo (Android)** with `F5` / `,dc`. Set native breakpoints with `,db`, then exercise the relevant feature on the phone. Attach resumes automatically; it does not set a breakpoint at `main`. Use `,dd` to detach and leave the app running; `,dt` terminates the debugged process.
+For Apollo, select **Launch Apollo Demo (Android)** to restart the installed app, resolve its launcher activity automatically, and attach LLDB. No APK build or installation is performed. This launches the app before attaching, so very early native initialization can run before breakpoints are installed. For an existing process, open **com.apollo.demo** on the device, start Neovim from `u3player4`, and select **Attach to Apollo Demo (Android)** with `F5` / `,dc`. Set native breakpoints with `,db`, then exercise the relevant feature on the phone. Attach resumes automatically; it does not set a breakpoint at `main`. Use `,dd` to detach and leave the app running; `,dt` terminates the debugged process.
 
-The profile points LLDB at `sdk-android/AndroidDemo/u3player/build/intermediates/ndkBuild/debug/obj/local/arm64-v8a`. The installed APK's `libu3player.so` and that local debug library were checked to have matching build ID `da9f3a59018443d2f41df712881f094a2de6eefd`. Recheck after changing builds. A pending breakpoint can become resolved when the app loads the native library. Source files edited after the binary was built still require a rebuild.
+The profile points LLDB at `sdk-android/AndroidDemo/obj/arm64-v8a`. The installed APK's `libu3player.so` and that local debug library were checked to have matching build ID `da9f3a59018443d2f41df712881f094a2de6eefd`. Recheck after changing builds. A pending breakpoint can become resolved when the app loads the native library. Source files edited after the binary was built still require a rebuild.
 
 For another project, add a profile to `.vscode/launch.json`:
 
@@ -101,9 +123,13 @@ For another project, add a profile to `.vscode/launch.json`:
 }
 ```
 
+Use `"request": "launch"` to launch/restart instead of attach. Optionally set `android.activity` to a component such as `com.example.app/.MainActivity`; otherwise the launcher is resolved automatically. Launch refuses to restart a process that already has a native debugger attached.
+
 Set `android.serial` if several devices are connected. Set `android.process` to an exact process name such as `com.example.app:player` when native playback runs in a service process. `android.package` remains the owning app package for `run-as`. Match the symbols to the installed library and use `sourceMap` if its build machine had different source paths.
 
-Requirements: Python 3.9+, `adb` on PATH, an authorized device, a debuggable app already running, an Android NDK, and `lldb-dap` with Android support (Xcode's is used here). The adapter discovers NDK servers under `ANDROID_SDK_ROOT` / `ANDROID_HOME`, falling back to `~/Library/Android/sdk`; `NVIM_ANDROID_LLDB_SERVER` overrides the device server binary. `NVIM_LLDB_DAP` overrides the host adapter. Java/Kotlin debugging needs a separate adapter. Android app logs generally go to `adb logcat`, rather than the DAP REPL.
+Requirements: Python 3.9+, `adb` on PATH, an authorized device, an installed debuggable app (already running for attach), an Android NDK, and `lldb-dap` with Android support (Xcode's is used here). The adapter discovers NDK servers under `ANDROID_SDK_ROOT` / `ANDROID_HOME`, falling back to `~/Library/Android/sdk`; `NVIM_ANDROID_LLDB_SERVER` overrides the device server binary. `NVIM_LLDB_DAP` overrides the host adapter. Java/Kotlin debugging needs a separate adapter.
+
+Android logcat streams into the existing DAP REPL by default, filtered to the selected device and app PID. Output is batched and severity-colored. The logcat process stops on detach, process exit, or editor exit. Set `"logcat": false` inside the profile's `android` object to disable it. This captures only that process; separate media-service processes require their own debug profile. The system log buffer is not cleared.
 
 If attachment fails, check `:DapShowLog`, `adb devices`, and `adb shell run-as <package> id`. Android LLDB emits stopped events for several threads at once; this adapter disables nvim-dap's automatic continuation of secondary threads so a breakpoint remains stopped.
 
@@ -114,6 +140,8 @@ If attachment fails, check `:DapShowLog`, `adb devices`, and `adb shell run-as <
 During the Android setup, this desktop smoke check encountered a macOS LLDB-DAP launch failure (signal 9 before the breakpoint). It also reproduces with `nvim -u NONE` and only nvim-dap, while the LLDB CLI launches the same fixture successfully. The Android device checks below pass; the desktop DAP failure remains unresolved.
 
 `python3 tests/android_adapter.py` uses fake ADB and LLDB executables to verify that setup preserves the DAP input stream and cleans up forwards and temporary files on success and setup failure.
+
+Run `nvim --headless -u NONE -n -i NONE '+luafile tests/debug_build.lua'` to check build ordering, paths containing spaces, failure gating and terminal cleanup. `tests/android_logcat.lua` uses the same invocation to check device/PID selection, streaming, detach and opt-out with a fake logcat process.
 
 On the connected ARM64 device, Neovim was verified against `com.apollo.demo`: attach, a native function breakpoint in `__epoll_pwait`, 36 threads, resolved stack frames, expression evaluation, and detach. After detach the app was running (`TracerPid: 0`, state `S`) and the ADB forward list was empty. The wrapper clears a lingering Android attach SIGSTOP only when the original process identity still matches and its tracer has exited. Apollo engine playback breakpoints have not yet been exercised; the matching debug symbols are configured.
 

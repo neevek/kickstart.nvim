@@ -11,3 +11,10 @@ highlight default link DebugLogDebug DiagnosticHint
 highlight default link DebugLogInfo DiagnosticInfo
 highlight default link DebugLogWarn DiagnosticWarn
 highlight default link DebugLogError DiagnosticError
+
+" Android logcat's brief format: I/Tag( PID): message.
+syntax match DebugLogTrace /^V\/.*$/
+syntax match DebugLogDebug /^D\/.*$/
+syntax match DebugLogInfo /^I\/.*$/
+syntax match DebugLogWarn /^W\/.*$/
+syntax match DebugLogError /^[EF]\/.*$/
