@@ -315,6 +315,7 @@ require('lazy').setup({
         'lewis6991/gitsigns.nvim',
         event = { 'BufReadPre', 'BufNewFile' },
         opts = {
+            current_line_blame = true,
             -- See `:help gitsigns.txt`
             signs = {
                 add = { text = '+' },

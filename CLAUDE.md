@@ -21,6 +21,8 @@ This is a Neovim configuration based on kickstart.nvim - a minimal, single-file 
 - `:BufferLineCycleNext/Prev` - Navigate between buffers (H/L keys)
 - `:Telescope find_files` - Telescope file search (`<leader>ff` uses Snacks)
 - `:Telescope live_grep_args` - Search in files (leader + fw)
+- `:DiffviewOpen` - Review working changes in a separate tab (`,gv`); `,gV` reviews staged changes
+- `:DiffviewFileHistory %` - Review current file history (`,gh`); `q` closes the review
 
 ### Navigation and performance
 
@@ -45,6 +47,8 @@ Startup has one owner: automatically show the dashboard only when there are no f
 Telescope is pinned to upstream commit `40aedd8a68c78a656a10a8d62d80c54af59420fb` for the batched cached-finder replay fix. Run `tests/search_policy.lua` with the real config when changing Telescope or picker filtering.
 
 Completion, Telescope, NvimTree, and terminal setup must stay inside their lazy plugin configs. Top-level `require()` calls can defeat lazy loading.
+
+Diffview is command/key loaded through `lua/custom/plugins/diffview.lua`. Keep it lazy; ordinary startup must not load its modules. It uses its own file panel in a separate tab. Existing Gitsigns and Snacks Git mappings remain available. See `DIFF_REVIEW.md` for review workflows and Apollo's separate core repository.
 
 Tree-sitter uses the pinned `main` branch and Neovim 0.12's highlighting API in `lua/custom/treesitter.lua`. The frozen `master` branch registers obsolete single-node directives; Markdown injections crash with `attempt to call method 'range'` on 0.12. Keep Tree-sitter eager as required upstream, and keep the parser CLI installed. Validate Markdown fenced-code parsing with `tests/treesitter.lua` as well as the startup UI tests.
 
