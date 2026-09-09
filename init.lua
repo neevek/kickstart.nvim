@@ -375,6 +375,10 @@ require('lazy').setup({
         lazy = false,
         version = "*",
         dependencies = 'nvim-tree/nvim-web-devicons',
+        config = function(_, opts)
+            require('bufferline').setup(opts)
+            require('custom.bufferline_diagnostics').setup()
+        end,
         opts = {
             options = {
                 always_show_bufferline = true,

@@ -22,7 +22,17 @@ M.languages = {
 function M.setup()
   local treesitter = require 'nvim-treesitter'
   treesitter.setup()
-  treesitter.install(M.languages)
+  -- Avoid loading installer tooling and rebuilding its parser registry on every launch.
+  local installed = {}
+  for _, lang in ipairs(treesitter.get_installed 'parsers') do
+    installed[lang] = true
+  end
+  local missing = vim.tbl_filter(function(lang)
+    return not installed[lang]
+  end, M.languages)
+  if #missing > 0 then
+    treesitter.install(missing)
+  end
   vim.api.nvim_create_autocmd('FileType', {
     group = vim.api.nvim_create_augroup('custom-treesitter', { clear = true }),
     callback = function(args)

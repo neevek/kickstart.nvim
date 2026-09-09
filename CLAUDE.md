@@ -38,6 +38,8 @@ Restore sessions in a scheduled callback after `VimEnter`. Sourcing a session di
 
 Bufferline is essential UI and loads eagerly. Dashboard must keep `hide.tabline=false`: otherwise its delayed restore can reset `showtabline` to 1 after bufferline loads. NvimTree shows Git-ignored files and follows the active buffer; picker search exclusions are a separate policy. Check rendered UI and tree selection in a real terminal, not just plugin-loaded flags in headless mode.
 
+Bufferline's diagnostic cache in `custom.bufferline_diagnostics` must invalidate on DiagnosticChanged and diagnostic show/hide (enable/disable does not emit DiagnosticChanged). Preserve insert-mode freeze behavior. Run `tests/bufferline_diagnostics.lua` with the real config after changes to this integration or the plugin.
+
 Startup has one owner: automatically show the dashboard only when there are no file arguments and no session to restore. Running dashboard startup alongside session restoration can wipe the same initial buffer twice. `:Dashboard` remains available explicitly.
 
 Telescope is pinned to upstream commit `40aedd8a68c78a656a10a8d62d80c54af59420fb` for the batched cached-finder replay fix. Run `tests/search_policy.lua` with the real config when changing Telescope or picker filtering.
@@ -45,6 +47,8 @@ Telescope is pinned to upstream commit `40aedd8a68c78a656a10a8d62d80c54af59420fb
 Completion, Telescope, NvimTree, and terminal setup must stay inside their lazy plugin configs. Top-level `require()` calls can defeat lazy loading.
 
 Tree-sitter uses the pinned `main` branch and Neovim 0.12's highlighting API in `lua/custom/treesitter.lua`. The frozen `master` branch registers obsolete single-node directives; Markdown injections crash with `attempt to call method 'range'` on 0.12. Keep Tree-sitter eager as required upstream, and keep the parser CLI installed. Validate Markdown fenced-code parsing with `tests/treesitter.lua` as well as the startup UI tests.
+
+Check installed parsers before invoking Tree-sitter's installer. Calling `install` with an already satisfied language list still loads installer modules and rebuilds its parser registry. The performance audit in `PERFORMANCE.md` records the measured reduction; do not present it as a proven wall-clock startup speedup.
 
 Native debugging is generic and lazy-loaded through `lua/kickstart/plugins/debug.lua` and `lua/custom/debug.lua`. Prefer Xcode's `lldb-dap` on macOS; `NVIM_LLDB_DAP` overrides it. Project profiles live in `.vscode/launch.json`, automatically read by nvim-dap from the current working directory. Do not hardcode Apollo paths into the global debugger or add another launch.json loader. See `DEBUGGING.md`; `python3 tests/debug_smoke.py` verifies real breakpoints, evaluation and stepping.
 
