@@ -397,17 +397,16 @@ require('lazy').setup({
                 diagnostics_indicator = function(_, _, diagnostics_dict, _)
                     local e = diagnostics_dict.error or 0
                     local w = diagnostics_dict.warning or 0
-                    local D = "%#BufferlineDiagDefault#"
-                    local E = "%#BufferlineErrCount#"
-                    local W = "%#BufferlineWarnCount#"
+                    -- Bufferline measures this text literally when fitting tabs.
+                    -- Embedded statusline highlight codes incorrectly consume width.
                     if e == 0 and w == 0 then
                         return ""
                     elseif e > 0 and w == 0 then
-                        return string.format("%s(%s%d%s)", D, E, e, D)
+                        return string.format("(%d)", e)
                     elseif e == 0 and w > 0 then
-                        return string.format("%s(%s%d%s)", D, W, w, D)
+                        return string.format("(%d)", w)
                     end
-                    return string.format("%s(%s%d%s|%s%d%s)", D, E, e, D, W, w, D)
+                    return string.format("(%d|%d)", e, w)
                 end,
             },
             highlights = {
@@ -420,7 +419,7 @@ require('lazy').setup({
                     bold = true,
                 },
                 close_button_selected = {
-                    fg = "#ff0000",
+                    fg = "#ffcc00",
                     bold = true,
                 },
             },
