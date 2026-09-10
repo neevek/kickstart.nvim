@@ -46,6 +46,31 @@ function M.setup()
   dap.adapters['lldb-dap'] = lldb_adapter
   dap.adapters['android-lldb'] = require('custom.android_debug').adapter(lldb_adapter)
   require('custom.android_debug').setup_logcat()
+  local output_sources = {}
+  for _, adapter in ipairs { 'lldb', 'lldb-dap' } do
+    dap.defaults[adapter].on_output = function(session, body)
+      if body.category == 'stdout' or body.category == 'stderr' then
+        local source = output_sources[session]
+        if not source then
+          source = require('custom.logview').new(session.config.name .. ' output', { open = false })
+          output_sources[session] = source
+          source:open()
+        end
+        source:feed(body.output or '', body.category)
+      elseif body.category ~= 'telemetry' then
+        require('dap.repl').append(body.output or '', '$', { newline = false })
+      end
+    end
+  end
+  local function close_output(session)
+    if output_sources[session] then
+      output_sources[session]:stop()
+      output_sources[session] = nil
+    end
+  end
+  dap.listeners.after.disconnect['logview-output'] = close_output
+  dap.listeners.before.event_terminated['logview-output'] = close_output
+  dap.listeners.before.event_exited['logview-output'] = close_output
   -- Android LLDB reports a stop for each thread; resuming one resumes the process.
   dap.defaults['android-lldb'].auto_continue_if_many_stopped = false
   local launch = {

@@ -129,7 +129,7 @@ Set `android.serial` if several devices are connected. Set `android.process` to 
 
 Requirements: Python 3.9+, `adb` on PATH, an authorized device, an installed debuggable app (already running for attach), an Android NDK, and `lldb-dap` with Android support (Xcode's is used here). The adapter discovers NDK servers under `ANDROID_SDK_ROOT` / `ANDROID_HOME`, falling back to `~/Library/Android/sdk`; `NVIM_ANDROID_LLDB_SERVER` overrides the device server binary. `NVIM_LLDB_DAP` overrides the host adapter. Java/Kotlin debugging needs a separate adapter.
 
-Android logcat streams into the existing DAP REPL by default, filtered to the selected device and app PID. Output is batched and severity-colored. The logcat process stops on detach, process exit, or editor exit. Set `"logcat": false` inside the profile's `android` object to disable it. This captures only that process; separate media-service processes require their own debug profile. The system log buffer is not cleared.
+Android logcat now streams into the standalone log viewer, filtered to the selected device and app PID. It stops on detach or process exit; set `android.logcat=false` to disable it. Native desktop stdout/stderr also use the log viewer; debugger console messages and expression results remain in the DAP REPL. See [LOG_VIEWER.md](LOG_VIEWER.md).
 
 If attachment fails, check `:DapShowLog`, `adb devices`, and `adb shell run-as <package> id`. Android LLDB emits stopped events for several threads at once; this adapter disables nvim-dap's automatic continuation of secondary threads so a breakpoint remains stopped.
 

@@ -48,12 +48,11 @@ end
 
 function M.setup_logcat()
   local dap = require 'dap'
-  local jobs = {}
+  local sources = {}
   local function stop(session)
-    local job = jobs[session]
-    jobs[session] = nil
-    if job then
-      vim.fn.jobstop(job)
+    if sources[session] then
+      sources[session]:stop()
+      sources[session] = nil
     end
   end
   dap.listeners.after.event_initialized['android-logcat'] = function(session)
@@ -68,46 +67,16 @@ function M.setup_logcat()
       vim.notify('Cannot start logcat: ' .. tostring(info), vim.log.levels.WARN)
       return
     end
-    local pending, scheduled = {}, false
-    local job = vim.fn.jobstart({ 'adb', '-s', info.serial, 'logcat', '--pid=' .. info.pid, '-v', 'brief', '-T', '1' }, {
-      on_stdout = function(_, data)
-        pending[#pending + 1] = table.concat(data, '\n')
-        if scheduled then
-          return
-        end
-        scheduled = true
-        vim.defer_fn(function()
-          scheduled = false
-          if jobs[session] then
-            require('dap.repl').append(table.concat(pending))
-          end
-          pending = {}
-        end, 80)
-      end,
-      on_stderr = function(_, data)
-        local message = vim.trim(table.concat(data, '\n'))
-        if message ~= '' then
-          vim.notify('logcat: ' .. message, vim.log.levels.WARN)
-        end
-      end,
-    })
-    if job > 0 then
-      jobs[session] = job
-    else
-      vim.notify('Could not start adb logcat', vim.log.levels.WARN)
-    end
+    sources[session] = require('custom.logview').logcat(info.serial, info.pid, { open = false, title = config.android.package })
+    vim.schedule(function()
+      if sources[session] then
+        sources[session]:open()
+      end
+    end)
   end
   dap.listeners.before.event_terminated['android-logcat'] = stop
   dap.listeners.before.event_exited['android-logcat'] = stop
   dap.listeners.after.disconnect['android-logcat'] = stop
-  vim.api.nvim_create_autocmd('VimLeavePre', {
-    group = vim.api.nvim_create_augroup('custom-android-logcat', { clear = true }),
-    callback = function()
-      for session in pairs(jobs) do
-        stop(session)
-      end
-    end,
-  })
 end
 
 return M

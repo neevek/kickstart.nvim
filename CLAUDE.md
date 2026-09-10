@@ -28,6 +28,8 @@ This is a Neovim configuration based on kickstart.nvim - a minimal, single-file 
 
 General Telescope pickers preserve their query and selection through picker caching. LSP definitions, references, and implementations always request fresh results for the current symbol. Do not resume LSP results by picker title alone or add ripgrep file sorting: sorting serializes search.
 
+`,ff` (Snacks Files) and `,fw` (Telescope live-grep-args) remember input independently per working directory through `custom.picker_input`. They reopen fresh results with the saved query instead of relying on Telescope's single-picker cache. Input memory lasts for the current Neovim process and includes explicitly cleared queries.
+
 `gI` / `<leader>li` resolve implementation bodies asynchronously through `lua/custom/lsp_navigation.lua`, with four requests in flight and declaration fallback while indexing. Do not reintroduce synchronous requests, fixed waits, or source-buffer preloading. `:LspNavigationCancel` cancels pending work.
 
 An empty implementation result falls back to definition lookup; non-virtual methods have definitions but no overrides. Both Telescope and Snacks show previews above results. Search policy in `lua/custom/search.lua` excludes paths containing `unittest` unless the effective search directory is inside `unittest/`. Preserve the project-local `.ignore` exception for generated SDK source discovery.

@@ -187,7 +187,7 @@ require('lazy').setup({
             -- find
             { "<leader>fb",      function() Snacks.picker.buffers() end,                                 desc = "Buffers" },
             { "<leader>fc",      function() Snacks.picker.files({ cwd = vim.fn.stdpath("config") }) end, desc = "Find Config File" },
-            { "<leader>ff",      function() Snacks.picker.files() end,                                   desc = "Find Files" },
+            { "<leader>ff",      function() require('custom.picker_input').files() end,                   desc = "Find Files (last input)" },
             { "<leader>fg",      function() Snacks.picker.git_files() end,                               desc = "Find Git Files" },
             { "<leader>fp",      function() Snacks.picker.projects() end,                                desc = "Projects" },
             { "<leader>fr",      function() Snacks.picker.recent() end,                                  desc = "Recent" },
@@ -950,7 +950,7 @@ local function persistent_find_files()
 end
 
 local function persistent_live_grep()
-    create_persistent_picker(require('telescope').extensions.live_grep_args.live_grep_args, "Live Grep")
+    require('custom.picker_input').grep()
 end
 
 local function persistent_builtin()
@@ -1070,3 +1070,11 @@ vim.api.nvim_create_autocmd("VimEnter", {
         end
     end),
 })
+
+-- Log sources load only when used, independently of the debugger.
+vim.keymap.set('n', '<leader>lv', function() require('custom.logview').open() end, { desc = 'Open log viewer' })
+vim.api.nvim_create_user_command('LogView', function() require('custom.logview').open() end, {})
+vim.api.nvim_create_user_command('LogClear', function() require('custom.logview').clear_current() end, {})
+vim.api.nvim_create_user_command('Logcat', function(a) require('custom.logview').android(a.args) end, { nargs = '?' })
+vim.api.nvim_create_user_command('LogCommand', function(a) require('custom.logview').command(a.args) end, { nargs = '+' })
+vim.api.nvim_create_user_command('LogFile', function(a) require('custom.logview').follow_file(a.args) end, { nargs = 1, complete = 'file' })
