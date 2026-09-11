@@ -14,6 +14,11 @@ function M.files()
     pattern = saved.pattern,
     search = saved.search,
     live = saved.live,
+    on_show = function(picker)
+      if saved.cursor then
+        picker.list:view(saved.cursor, saved.top)
+      end
+    end,
     on_close = function(picker)
       local filter = picker.input.filter
       local text = picker.opts.live and filter.search or filter.pattern
@@ -24,6 +29,8 @@ function M.files()
         pattern = picker.opts.live and filter.pattern or text,
         search = picker.opts.live and text or filter.search,
         live = picker.opts.live,
+        cursor = picker.list.cursor,
+        top = picker.list.top,
       }
     end,
   }
@@ -31,17 +38,38 @@ end
 
 function M.grep()
   local root = cwd()
+  local saved = grep[root] or {}
   require('telescope').extensions.live_grep_args.live_grep_args {
     cwd = root,
-    default_text = grep[root] or '',
+    default_text = saved.text or '',
+    selection_strategy = 'row',
     attach_mappings = function(buf, map)
       local picker = require('telescope.actions.state').get_current_picker(buf)
+      local restored = false
+      picker:register_completion_callback(function()
+        if restored then
+          return
+        end
+        restored = true
+        if saved.row and picker:_get_prompt() == saved.text then
+          picker:set_selection(saved.row)
+          if saved.view and vim.api.nvim_win_is_valid(picker.results_win) then
+            vim.api.nvim_win_call(picker.results_win, function()
+              vim.fn.winrestview(saved.view)
+            end)
+          end
+        end
+      end)
       -- Capture before selection/closing destroys the prompt, including an empty query.
       vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI', 'BufLeave', 'BufWipeout' }, {
         buffer = buf,
         callback = function()
           if vim.api.nvim_buf_is_valid(buf) then
-            grep[root] = picker:_get_prompt()
+            local view
+            if picker.results_win and vim.api.nvim_win_is_valid(picker.results_win) then
+              view = vim.api.nvim_win_call(picker.results_win, vim.fn.winsaveview)
+            end
+            grep[root] = { text = picker:_get_prompt(), row = picker:get_selection_row(), view = view }
           end
         end,
       })
